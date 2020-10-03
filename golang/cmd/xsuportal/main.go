@@ -212,6 +212,7 @@ func (*AdminService) Initialize(e echo.Context) error {
 			Port: int64(port),
 		},
 	}
+	InitDashboardCache()
 	return writeProto(e, http.StatusOK, res)
 }
 
@@ -230,17 +231,19 @@ func (*AdminService) ListClarifications(e echo.Context) error {
 		return fmt.Errorf("query clarifications: %w", err)
 	}
 	res := &adminpb.ListClarificationsResponse{}
+
+	var clarificationTeamIDs []int64
+	for _, clarification := range clarifications {
+		clarificationTeamIDs = append(clarificationTeamIDs, clarification.TeamID)
+	}
+	teamIDtoTeamMap, err := getTeamsMapByIDs(ctx, db, clarificationTeamIDs)
+	if err != sql.ErrNoRows && err != nil {
+		return fmt.Errorf("select teams: %w", err)
+	}
+
 	for _, clarification := range clarifications {
 		var team xsuportal.Team
-		// TODO: N+1
-		err := db.GetContext(ctx,
-			&team,
-			"SELECT * FROM `teams` WHERE `id` = ? LIMIT 1",
-			clarification.TeamID,
-		)
-		if err != nil {
-			return fmt.Errorf("query team(id=%v, clarification=%v): %w", clarification.TeamID, clarification.ID, err)
-		}
+		team = teamIDtoTeamMap[clarification.TeamID]
 		c, err := makeClarificationPB(ctx, db, &clarification, &team)
 		if err != nil {
 			return fmt.Errorf("make clarification: %w", err)
@@ -504,6 +507,31 @@ func (*ContestantService) GetBenchmarkJob(e echo.Context) error {
 	})
 }
 
+func getTeamsMapByIDs(ctx context.Context, db *sqlx.DB, ids []int64) (teamMap map[int64]xsuportal.Team, err error) {
+	teamMap = make(map[int64]xsuportal.Team)
+	// IN句に渡すidの列が空なら即座に空のmapを返す
+	if len(ids) == 0 {
+		return
+	}
+	query, args, err := sqlx.In("SELECT * FROM `teams` WHERE `id` IN (?)", ids)
+	if err != nil {
+		return nil, err
+	}
+	var teams []xsuportal.Team
+	err = db.SelectContext(ctx,
+		&teams,
+		query,
+		args...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, team := range teams {
+		teamMap[team.ID] = team
+	}
+	return
+}
+
 func (*ContestantService) ListClarifications(e echo.Context) error {
 	ctx := e.Request().Context()
 	if ok, err := loginRequired(e, db, &loginRequiredOption{Team: true}); !ok {
@@ -520,17 +548,19 @@ func (*ContestantService) ListClarifications(e echo.Context) error {
 		return fmt.Errorf("select clarifications: %w", err)
 	}
 	res := &contestantpb.ListClarificationsResponse{}
+
+	var clarificationTeamIDs []int64
+	for _, clarification := range clarifications {
+		clarificationTeamIDs = append(clarificationTeamIDs, clarification.TeamID)
+	}
+	teamIDtoTeamMap, err := getTeamsMapByIDs(ctx, db, clarificationTeamIDs)
+	if err != sql.ErrNoRows && err != nil {
+		return fmt.Errorf("select teams: %w", err)
+	}
+
 	for _, clarification := range clarifications {
 		var team xsuportal.Team
-		// TODO: N+1
-		err := db.GetContext(ctx,
-			&team,
-			"SELECT * FROM `teams` WHERE `id` = ? LIMIT 1",
-			clarification.TeamID,
-		)
-		if err != nil {
-			return fmt.Errorf("get team(id=%v): %w", clarification.TeamID, err)
-		}
+		team = teamIDtoTeamMap[clarification.TeamID]
 		c, err := makeClarificationPB(ctx, db, &clarification, &team)
 		if err != nil {
 			return fmt.Errorf("make clarification: %w", err)
@@ -1168,10 +1198,11 @@ func (*AudienceService) ListTeams(e echo.Context) error {
 }
 
 func (*AudienceService) Dashboard(e echo.Context) error {
-	leaderboard, err := makeLeaderboardPB(e, 0)
+	leaderboard, err := dashboardCache.Get(e)
 	if err != nil {
 		return fmt.Errorf("make leaderboard: %w", err)
 	}
+	// TODO: gRPC変換が重いのでは？ writeProtoの結果をキャッシュすべき？
 	return writeProto(e, http.StatusOK, &audiencepb.DashboardResponse{
 		Leaderboard: leaderboard,
 	})
