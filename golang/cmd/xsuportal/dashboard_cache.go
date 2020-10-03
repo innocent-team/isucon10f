@@ -39,11 +39,11 @@ func (d *DashboardCache) Get(e echo.Context) (DashboardData, error) {
 	d.Mutex.RUnlock()
 
 	if expired {
+		d.Mutex.Lock()
 		fromDB, err := GetFromDB(e)
 		if err != nil {
 			return nil, err
 		}
-		d.Mutex.Lock()
 		d.Dashboard = fromDB
 		d.CacheCreatedAt = now
 		d.Mutex.Unlock()
