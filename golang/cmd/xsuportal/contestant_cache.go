@@ -29,9 +29,7 @@ func InitContestantCache() {
 
 /// コンテストが始まっていれば情報はフリーズできる
 func (c *ContestantCache) CanFreeze(e echo.Context) (bool, error) {
-	c.Mutex.RLock()
 	f := c.Freezed
-	c.Mutex.RUnlock()
 	if f {
 		return false, nil
 	}
@@ -59,7 +57,6 @@ func (c *ContestantCache) Freeze(e echo.Context) error {
 		return fmt.Errorf("query team: %w", err)
 	}
 
-	c.Mutex.Lock()
 	for _, cs := range contestants {
 		c.Contestants[cs.ID] = cs
 	}
@@ -67,19 +64,28 @@ func (c *ContestantCache) Freeze(e echo.Context) error {
 		c.Teams[ts.ID] = ts
 	}
 	c.Freezed = true
-	c.Mutex.Unlock()
+	return nil
+}
+
+func (c *ContestantCache) UpdateFreeze(e echo.Context) error {
+	c.Mutex.RLock()
+	ok, err := c.CanFreeze(e)
+	c.Mutex.RUnlock()
+	if err != nil {
+		return err
+	}
+
+	if ok {
+		c.Mutex.Lock()
+		c.Freeze(e)
+		c.Mutex.Unlock()
+	}
 	return nil
 }
 
 // 情報を確定できるか確認する．確定できるなら確定する．キャッシュを使えるなら使う．
 func (c *ContestantCache) ContestantByID(e echo.Context, id string) (*xsuportal.Contestant, error) {
-	ok, err := c.CanFreeze(e)
-	if err != nil {
-		return nil, err
-	}
-	if ok {
-		c.Freeze(e)
-	}
+	c.UpdateFreeze(e)
 
 	if c.Freezed {
 		contestant, ok := c.Contestants[id]
@@ -92,7 +98,7 @@ func (c *ContestantCache) ContestantByID(e echo.Context, id string) (*xsuportal.
 
 	var contestant xsuportal.Contestant
 	query := "SELECT * FROM `contestants` WHERE `id` = ? LIMIT 1"
-	err = sqlx.GetContext(e.Request().Context(), db, &contestant, query, id)
+	err := sqlx.GetContext(e.Request().Context(), db, &contestant, query, id)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -103,13 +109,7 @@ func (c *ContestantCache) ContestantByID(e echo.Context, id string) (*xsuportal.
 }
 
 func (c *ContestantCache) TeamByID(e echo.Context, id int64) (*xsuportal.Team, error) {
-	ok, err := c.CanFreeze(e)
-	if err != nil {
-		return nil, err
-	}
-	if ok {
-		c.Freeze(e)
-	}
+	c.UpdateFreeze(e)
 
 	if c.Freezed {
 		team, ok := c.Teams[id]
@@ -122,7 +122,7 @@ func (c *ContestantCache) TeamByID(e echo.Context, id int64) (*xsuportal.Team, e
 
 	var team xsuportal.Team
 	query := "SELECT * FROM `contestants` WHERE `id` = ? LIMIT 1"
-	err = sqlx.GetContext(e.Request().Context(), db, &team, query, id)
+	err := sqlx.GetContext(e.Request().Context(), db, &team, query, id)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
