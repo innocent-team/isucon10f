@@ -854,9 +854,12 @@ func (*RegistrationService) GetRegistrationSession(e echo.Context) error {
 	ctx := e.Request().Context()
 	var team *xsuportal.Team
 	contestant, err := getCurrentContestant(e, db)
+	if err != nil {
+		return fmt.Errorf("get current contestant: %w", err)
+	}
 	currentTeam, err := getCurrentTeam(e, db, contestant)
 	if err != nil {
-		return fmt.Errorf("get current team: %w", err)
+		return fmt.Errorf("get current team S: %w", err)
 	}
 	team = currentTeam
 	if team == nil {
