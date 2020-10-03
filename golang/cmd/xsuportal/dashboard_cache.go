@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"net/http"
-	"sync"
 	"time"
 
 	audiencepb "github.com/isucon/isucon10-final/webapp/golang/proto/xsuportal/services/audience"
@@ -16,7 +15,6 @@ type DashboardData = []byte
 
 type DashboardCache struct {
 	Dashboard DashboardData
-	Mutex     sync.RWMutex
 }
 
 var dashboardCache DashboardCache
@@ -50,8 +48,6 @@ func (d *DashboardCache) DashboardUpdater() {
 		func() {
 			start := time.Now()
 			log.Info("Update dashboard cache start")
-			d.Mutex.Lock()
-			defer d.Mutex.Unlock()
 			req, err := http.NewRequest("GET", "/dashboard_update", nil)
 			if err != nil {
 				log.Warn(err)
