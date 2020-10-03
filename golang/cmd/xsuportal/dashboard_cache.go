@@ -44,7 +44,7 @@ func GetFromDB(e echo.Context) (DashboardData, error) {
 }
 
 func (d *DashboardCache) DashboardUpdater() {
-	t := time.NewTicker(250 * time.Millisecond)
+	t := time.NewTicker(50 * time.Millisecond)
 	for {
 		select {
 		case <-t.C:
