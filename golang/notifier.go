@@ -228,7 +228,39 @@ func (n *Notifier) NotifyBenchmarkJobFinished(db sqlx.Ext, job *BenchmarkJob) er
 		if n.VAPIDKey() != nil {
 			notificationPB.Id = notification.ID
 			notificationPB.CreatedAt = timestamppb.New(notification.CreatedAt)
-			// TODO: Web Push IIKANJI NI SHITE
+			vapidKey, err := GetVAPIDKey(WebpushVAPIDPrivateKeyPath)
+			if err != nil {
+				return fmt.Errorf("notify: %w", err)
+			}
+			var pushSubscriptions []*PushSubscription
+			err = sqlx.Select(
+				db,
+				&pushSubscriptions,
+				`
+					SELECT * FROM push_subscriptions
+					WHERE contestant_id = ?
+				`,
+				contestant.ID,
+			)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					continue
+				}
+				return fmt.Errorf("notify: %w", err)
+			}
+			for _, pushSubscription := range pushSubscriptions {
+				err = SendWebPush(vapidKey, notificationPB, pushSubscription)
+				if err != nil {
+					return fmt.Errorf("notify: %w", err)
+				}
+			}
+			_, err = db.Exec(
+				"UPDATE `notifications` SET `read` = TRUE WHERE `contestant_id` = ? AND `read` = FALSE",
+				contestant.ID,
+			)
+			if err != nil {
+				return fmt.Errorf("update notifications: %w", err)
+			}
 		}
 	}
 	return nil
