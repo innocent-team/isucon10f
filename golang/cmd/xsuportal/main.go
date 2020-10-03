@@ -212,6 +212,7 @@ func (*AdminService) Initialize(e echo.Context) error {
 			Port: int64(port),
 		},
 	}
+	InitDashboardCache()
 	return writeProto(e, http.StatusOK, res)
 }
 
