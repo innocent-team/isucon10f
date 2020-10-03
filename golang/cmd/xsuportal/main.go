@@ -504,6 +504,27 @@ func (*ContestantService) GetBenchmarkJob(e echo.Context) error {
 	})
 }
 
+func getTeamsMapByIDs(ctx context.Context, db *sqlx.DB, ids []int64) (teamMap map[int64]xsuportal.Team, err error) {
+	query, args, err := sqlx.In("SELECT * FROM `teams` WHERE `id` IN (?)", ids)
+	if err != nil {
+		return nil, err
+	}
+	var teams []xsuportal.Team
+	err = db.SelectContext(ctx,
+		&teams,
+		query,
+		args...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	teamMap = make(map[int64]xsuportal.Team)
+	for _, team := range teams {
+		teamMap[team.ID] = team
+	}
+	return
+}
+
 func (*ContestantService) ListClarifications(e echo.Context) error {
 	ctx := e.Request().Context()
 	if ok, err := loginRequired(e, db, &loginRequiredOption{Team: true}); !ok {
