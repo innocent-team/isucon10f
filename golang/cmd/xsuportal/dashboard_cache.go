@@ -1,20 +1,20 @@
 package main
 
 import (
-	"sync"
+	"context"
+	"net/http"
 	"time"
 
 	audiencepb "github.com/isucon/isucon10-final/webapp/golang/proto/xsuportal/services/audience"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
 	"google.golang.org/protobuf/proto"
 )
 
 type DashboardData = []byte
 
 type DashboardCache struct {
-	Dashboard      DashboardData
-	CacheCreatedAt time.Time
-	Mutex          sync.RWMutex
+	Dashboard DashboardData
 }
 
 var dashboardCache DashboardCache
@@ -23,36 +23,9 @@ func InitDashboardCache() {
 	dashboardCache = DashboardCache{}
 }
 
-// キャッシュが1秒以上古びているかどうか
-func (d *DashboardCache) IsExpired(now time.Time) bool {
-	// 怖いのでちょっと安全側に 0.8 秒とる
-	cacheCreatedAtPlus1sec := d.CacheCreatedAt.Add(800 * time.Millisecond)
-	return cacheCreatedAtPlus1sec.Before(now)
-}
-
-// キャッシュから取ってくる、キャッシュが失効してたらデータ作りなおしてsetする
+// キャッシュから取ってくる
 func (d *DashboardCache) Get(e echo.Context) (DashboardData, error) {
-	now := time.Now()
-
-	d.Mutex.RLock()
-	expired := d.IsExpired(now)
-	d.Mutex.RUnlock()
-
-	if expired {
-		fromDB, err := GetFromDB(e)
-		if err != nil {
-			return nil, err
-		}
-		d.Mutex.Lock()
-		d.Dashboard = fromDB
-		d.CacheCreatedAt = now
-		d.Mutex.Unlock()
-	}
-
-	d.Mutex.RLock()
-	ret := d.Dashboard
-	d.Mutex.RUnlock()
-	return ret, nil
+	return d.Dashboard, nil
 }
 
 // キャッシュの元となるデータを取ってくる
@@ -66,4 +39,40 @@ func GetFromDB(e echo.Context) (DashboardData, error) {
 		Leaderboard: dashboardFromDB,
 	}
 	return proto.Marshal(dashboardReponse)
+}
+
+func (d *DashboardCache) DashboardUpdater() {
+	sleepDuration := 100 * time.Millisecond
+
+	for {
+		func() {
+			start := time.Now()
+			log.Info("Update dashboard cache start")
+			req, err := http.NewRequest("GET", "/dashboard_update", nil)
+			if err != nil {
+				log.Warn(err)
+				return
+			}
+			req = req.WithContext(context.Background())
+			e := echo.New().NewContext(req, nil)
+			fromDB, err := GetFromDB(e)
+			if err != nil {
+				log.Warn(err)
+				return
+			}
+			d.Dashboard = fromDB
+			end := time.Now()
+			duration := end.Sub(start)
+			if duration >= 500*time.Millisecond {
+				log.Infof("Duration %v exceeded!!!!!: Update dashboard cache finish: duration=%v", sleepDuration, duration)
+			} else {
+				log.Infof("Update dashboard cache finish: duration=%v", duration)
+			}
+			if duration >= sleepDuration {
+				// sleepしない
+			} else {
+				time.Sleep(sleepDuration)
+			}
+		}()
+	}
 }

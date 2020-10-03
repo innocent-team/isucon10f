@@ -87,6 +87,9 @@ func main() {
 	srv.Use(session.Middleware(sessions.NewCookieStore([]byte("tagomoris"))))
 	echopprof.Wrap(srv)
 
+	// Dashboard cache updater
+	go dashboardCache.DashboardUpdater()
+
 	srv.File("/", "public/audience.html")
 	srv.File("/registration", "public/audience.html")
 	srv.File("/signup", "public/audience.html")
