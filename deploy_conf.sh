@@ -15,3 +15,7 @@ sudo cp -a ./conf/mysql/mysql.conf.d/mysqld.cnf /etc/mysql/mysql.conf.d/mysqld.c
 sudo cp -a ./conf/mysql/conf.d/mysqldump.cnf /etc/mysql/conf.d/mysqldump.cnf
 sudo cp -a ./conf/mysql/conf.d/mysql.cnf /etc/mysql/conf.d/mysql.cnf
 sudo systemctl restart mysql
+
+sudo cp -a ./conf/nginx/nginx.conf /etc/nginx/nginx.conf
+sudo cp -a ./conf/nginx/sites-available/default /etc/nginx/sites-available/default
+sudo nginx -t && sudo systemctl restart nginx
