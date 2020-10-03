@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"net/http"
 	"sync"
 	"time"
 
@@ -59,7 +61,13 @@ func (d *DashboardCache) DashboardUpdater() {
 			func() {
 				d.Mutex.Lock()
 				defer d.Mutex.Unlock()
-				e := echo.New().NewContext(nil, nil)
+				req, err := http.NewRequest("GET", "/dashboard_update", nil)
+				if err != nil {
+					log.Warn(err)
+					return
+				}
+				req = req.WithContext(context.Background())
+				e := echo.New().NewContext(req, nil)
 				fromDB, err := GetFromDB(e)
 				if err != nil {
 					log.Warn(err)
