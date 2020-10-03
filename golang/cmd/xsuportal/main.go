@@ -80,8 +80,8 @@ func main() {
 	srv.Use(nrecho.Middleware(nrApp))
 
 	db, _ = xsuportal.GetDB()
-	db.SetMaxIdleConns(24)
-	db.SetMaxOpenConns(24)
+	db.SetMaxIdleConns(32)
+	db.SetMaxOpenConns(32)
 
 	srv.Use(middleware.Logger())
 	srv.Use(middleware.Recover())
