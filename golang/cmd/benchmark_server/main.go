@@ -278,7 +278,7 @@ func main() {
 	// New Relic
 	nrLicenseKey := os.Getenv("NEWRELIC_LICENSE_KEY")
 	nrApp, err := newrelic.NewApplication(
-		newrelic.ConfigAppName("isucon10f-xsuportal"),
+		newrelic.ConfigAppName("isucon10f-benchmark_server"),
 		newrelic.ConfigDistributedTracerEnabled(true),
 		newrelic.ConfigLicense(nrLicenseKey),
 	)
