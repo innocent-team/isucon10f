@@ -69,7 +69,7 @@ func (d *DashboardCache) DashboardUpdater() {
 				d.Dashboard = fromDB
 				end := time.Now()
 				duration := end.Sub(start)
-				if duration >= tickDuration {
+				if duration >= 500*time.Millisecond {
 					log.Infof("Duration %v exceeded!!!!!: Update dashboard cache finish: duration=%v", tickDuration, duration)
 				} else {
 					log.Infof("Update dashboard cache finish: duration=%v", duration)
