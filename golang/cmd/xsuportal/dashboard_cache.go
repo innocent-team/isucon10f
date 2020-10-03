@@ -47,34 +47,36 @@ func (d *DashboardCache) DashboardUpdater() {
 	sleepDuration := 100 * time.Millisecond
 
 	for {
-		start := time.Now()
-		log.Info("Update dashboard cache start")
-		d.Mutex.Lock()
-		defer d.Mutex.Unlock()
-		req, err := http.NewRequest("GET", "/dashboard_update", nil)
-		if err != nil {
-			log.Warn(err)
-			return
-		}
-		req = req.WithContext(context.Background())
-		e := echo.New().NewContext(req, nil)
-		fromDB, err := GetFromDB(e)
-		if err != nil {
-			log.Warn(err)
-			return
-		}
-		d.Dashboard = fromDB
-		end := time.Now()
-		duration := end.Sub(start)
-		if duration >= 500*time.Millisecond {
-			log.Infof("Duration %v exceeded!!!!!: Update dashboard cache finish: duration=%v", sleepDuration, duration)
-		} else {
-			log.Infof("Update dashboard cache finish: duration=%v", duration)
-		}
-		if duration >= sleepDuration {
-			// sleepしない
-		} else {
-			time.Sleep(sleepDuration)
-		}
+		func() {
+			start := time.Now()
+			log.Info("Update dashboard cache start")
+			d.Mutex.Lock()
+			defer d.Mutex.Unlock()
+			req, err := http.NewRequest("GET", "/dashboard_update", nil)
+			if err != nil {
+				log.Warn(err)
+				return
+			}
+			req = req.WithContext(context.Background())
+			e := echo.New().NewContext(req, nil)
+			fromDB, err := GetFromDB(e)
+			if err != nil {
+				log.Warn(err)
+				return
+			}
+			d.Dashboard = fromDB
+			end := time.Now()
+			duration := end.Sub(start)
+			if duration >= 500*time.Millisecond {
+				log.Infof("Duration %v exceeded!!!!!: Update dashboard cache finish: duration=%v", sleepDuration, duration)
+			} else {
+				log.Infof("Update dashboard cache finish: duration=%v", duration)
+			}
+			if duration >= sleepDuration {
+				// sleepしない
+			} else {
+				time.Sleep(sleepDuration)
+			}
+		}()
 	}
 }
