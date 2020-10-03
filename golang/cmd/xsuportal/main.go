@@ -541,17 +541,19 @@ func (*ContestantService) ListClarifications(e echo.Context) error {
 		return fmt.Errorf("select clarifications: %w", err)
 	}
 	res := &contestantpb.ListClarificationsResponse{}
+
+	var clarificationTeamIDs []int64
+	for _, clarification := range clarifications {
+		clarificationTeamIDs = append(clarificationTeamIDs, clarification.TeamID)
+	}
+	teamIDtoTeamMap, err := getTeamsMapByIDs(ctx, db, clarificationTeamIDs)
+	if err != sql.ErrNoRows && err != nil {
+		return fmt.Errorf("select teams: %w", err)
+	}
+
 	for _, clarification := range clarifications {
 		var team xsuportal.Team
-		// TODO: N+1
-		err := db.GetContext(ctx,
-			&team,
-			"SELECT * FROM `teams` WHERE `id` = ? LIMIT 1",
-			clarification.TeamID,
-		)
-		if err != nil {
-			return fmt.Errorf("get team(id=%v): %w", clarification.TeamID, err)
-		}
+		team = teamIDtoTeamMap[clarification.TeamID]
 		c, err := makeClarificationPB(ctx, db, &clarification, &team)
 		if err != nil {
 			return fmt.Errorf("make clarification: %w", err)
