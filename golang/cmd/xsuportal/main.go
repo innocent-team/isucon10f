@@ -1230,7 +1230,6 @@ func getXsuportalContext(e echo.Context) *XsuportalContext {
 }
 
 func getCurrentContestant(e echo.Context, db sqlx.QueryerContext) (*xsuportal.Contestant, error) {
-	ctx := e.Request().Context()
 	xc := getXsuportalContext(e)
 	if xc.Contestant != nil {
 		return xc.Contestant, nil
@@ -1243,16 +1242,11 @@ func getCurrentContestant(e echo.Context, db sqlx.QueryerContext) (*xsuportal.Co
 	if !ok {
 		return nil, nil
 	}
-	var contestant xsuportal.Contestant
-	query := "SELECT * FROM `contestants` WHERE `id` = ? LIMIT 1"
-	err = sqlx.GetContext(ctx, db, &contestant, query, contestantID)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
+	contestant, err := contestantCache.GetByID(e, contestantID.(string))
 	if err != nil {
-		return nil, fmt.Errorf("query contestant: %w", err)
+		return nil, fmt.Errorf("contestant getByID: %w", err)
 	}
-	xc.Contestant = &contestant
+	xc.Contestant = contestant
 	return xc.Contestant, nil
 }
 
