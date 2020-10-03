@@ -219,6 +219,7 @@ func (*AdminService) Initialize(e echo.Context) error {
 		},
 	}
 	InitDashboardCache()
+	InitContestantCache()
 	return writeProto(e, http.StatusOK, res)
 }
 
