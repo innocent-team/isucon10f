@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/x509"
@@ -19,6 +20,7 @@ import (
 	"github.com/SherClockHolmes/webpush-go"
 	"github.com/golang/protobuf/proto"
 	"github.com/jmoiron/sqlx"
+	"github.com/newrelic/go-agent/v3/newrelic"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	xsuportal "github.com/isucon/isucon10-final/webapp/golang"
@@ -28,6 +30,8 @@ import (
 const (
 	WebpushSubject = "xsuportal-debug@example.com"
 )
+
+var nrApp *newrelic.Application
 
 func main() {
 	log.SetFlags(0)
@@ -68,13 +72,15 @@ func MakeTestNotificationPB() *resources.Notification {
 	}
 }
 
-func InsertNotification(db sqlx.Ext, notificationPB *resources.Notification, contestantID string) (*xsuportal.Notification, error) {
+func InsertNotification(db sqlx.ExtContext, notificationPB *resources.Notification, contestantID string) (*xsuportal.Notification, error) {
+	txn, ctx := startTransaction(context.TODO(), "InsertNotification")
+	defer txn.End()
 	b, err := proto.Marshal(notificationPB)
 	if err != nil {
 		return nil, fmt.Errorf("marshal notification: %w", err)
 	}
 	encodedMessage := base64.StdEncoding.EncodeToString(b)
-	res, err := db.Exec(
+	res, err := db.ExecContext(ctx,
 		"INSERT INTO `notifications` (`contestant_id`, `encoded_message`, `read`, `created_at`, `updated_at`) VALUES (?, ?, FALSE, NOW(6), NOW(6))",
 		contestantID,
 		encodedMessage,
@@ -84,7 +90,7 @@ func InsertNotification(db sqlx.Ext, notificationPB *resources.Notification, con
 	}
 	id, _ := res.LastInsertId()
 	var notification xsuportal.Notification
-	err = sqlx.Get(
+	err = sqlx.GetContext(ctx,
 		db,
 		&notification,
 		"SELECT * FROM `notifications` WHERE `id` = ?",
@@ -96,9 +102,17 @@ func InsertNotification(db sqlx.Ext, notificationPB *resources.Notification, con
 	return &notification, nil
 }
 
-func GetPushSubscriptions(db sqlx.Queryer, contestantID string) ([]xsuportal.PushSubscription, error) {
+func startTransaction(ctx context.Context, name string) (txn *newrelic.Transaction, newCtx context.Context) {
+	txn = nrApp.StartTransaction(name)
+	newCtx = newrelic.NewContext(ctx, txn)
+	return
+}
+
+func GetPushSubscriptions(db sqlx.QueryerContext, contestantID string) ([]xsuportal.PushSubscription, error) {
+	txn, ctx := startTransaction(context.TODO(), "GetPushSubscriptions")
+	defer txn.End()
 	var subscriptions []xsuportal.PushSubscription
-	err := sqlx.Select(
+	err := sqlx.SelectContext(ctx,
 		db,
 		&subscriptions,
 		"SELECT * FROM `push_subscriptions` WHERE `contestant_id` = ?",
@@ -152,6 +166,17 @@ func SendWebPush(vapidKey *ecdsa.PrivateKey, notificationPB *resources.Notificat
 }
 
 func run() error {
+	// New Relic
+	var err error
+	nrLicenseKey := os.Getenv("NEWRELIC_LICENSE_KEY")
+	nrApp, err = newrelic.NewApplication(
+		newrelic.ConfigAppName("isucon10f-send_web_push"),
+		newrelic.ConfigDistributedTracerEnabled(true),
+		newrelic.ConfigLicense(nrLicenseKey),
+	)
+	if err != nil {
+		log.Printf("NewRelic app not configured, ignoring: %s", err)
+	}
 	rand.Seed(time.Now().Unix())
 	var flags struct {
 		contestantID        string
