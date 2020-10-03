@@ -1318,6 +1318,7 @@ type loginRequiredOption struct {
 }
 
 func loginRequired(e echo.Context, db sqlx.QueryerContext, option *loginRequiredOption) (bool, error) {
+	// TODO: ログインしてるかを getCurrentContestant で取ってるけど余計
 	contestant, err := getCurrentContestant(e, db, option.Lock)
 	if err != nil {
 		return false, fmt.Errorf("current contestant: %w", err)
