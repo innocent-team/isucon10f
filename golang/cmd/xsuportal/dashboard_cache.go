@@ -6,6 +6,7 @@ import (
 
 	audiencepb "github.com/isucon/isucon10-final/webapp/golang/proto/xsuportal/services/audience"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -66,4 +67,26 @@ func GetFromDB(e echo.Context) (DashboardData, error) {
 		Leaderboard: dashboardFromDB,
 	}
 	return proto.Marshal(dashboardReponse)
+}
+
+func (d *DashboardCache) DashboardUpdater() {
+	t := time.NewTicker(500 * time.Millisecond)
+	for {
+		select {
+		case <-t.C:
+			func() {
+				d.Mutex.Lock()
+				defer d.Mutex.Unlock()
+				e := echo.New().NewContext(nil, nil)
+				fromDB, err := GetFromDB(e)
+				if err != nil {
+					log.Warn(err)
+					return
+				}
+				d.Dashboard = fromDB
+				now := time.Now()
+				d.CacheCreatedAt = now
+			}()
+		}
+	}
 }
