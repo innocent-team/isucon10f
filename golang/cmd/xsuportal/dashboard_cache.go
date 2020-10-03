@@ -44,7 +44,8 @@ func GetFromDB(e echo.Context) (DashboardData, error) {
 }
 
 func (d *DashboardCache) DashboardUpdater() {
-	t := time.NewTicker(100 * time.Millisecond)
+	tickDuration := 100 * time.Millisecond
+	t := time.NewTicker(tickDuration)
 	for {
 		select {
 		case <-t.C:
@@ -67,7 +68,12 @@ func (d *DashboardCache) DashboardUpdater() {
 				}
 				d.Dashboard = fromDB
 				end := time.Now()
-				log.Infof("Update dashboard cache finish: duration=%v", end.Sub(start))
+				duration := end.Sub(start)
+				if duration >= tickDuration {
+					log.Infof("Duration %v exceeded!!!!!: Update dashboard cache finish: duration=%v", tickDuration, duration)
+				} else {
+					log.Infof("Update dashboard cache finish: duration=%v", duration)
+				}
 			}()
 		}
 	}
