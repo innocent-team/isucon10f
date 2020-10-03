@@ -1432,6 +1432,21 @@ func makeTeamPB(ctx context.Context, db sqlx.QueryerContext, t *xsuportal.Team, 
 	return pb, nil
 }
 
+func makeTeamPBforLeaderboard(t *xsuportal.Team) (*resourcespb.Team, error) {
+	pb := &resourcespb.Team{
+		Id:        t.ID,
+		Name:      t.Name,
+		LeaderId:  t.LeaderID.String,
+		Withdrawn: t.Withdrawn,
+	}
+	if t.Student.Valid {
+		pb.Student = &resourcespb.Team_StudentStatus{
+			Status: t.Student.Bool,
+		}
+	}
+	return pb, nil
+}
+
 func makeContestantPB(c *xsuportal.Contestant) *resourcespb.Contestant {
 	return &resourcespb.Contestant{
 		Id:        c.ID,
@@ -1579,8 +1594,7 @@ func makeLeaderboardPB(e echo.Context, teamID int64) (*resourcespb.Leaderboard, 
 	}
 	pb := &resourcespb.Leaderboard{}
 	for _, team := range leaderboard {
-		// TODO: N+1 (makeTeamPB内でSELECTしてる)
-		t, _ := makeTeamPB(ctx, db, team.Team(), false, false)
+		t, _ := makeTeamPBforLeaderboard(team.Team())
 		item := &resourcespb.Leaderboard_LeaderboardItem{
 			Scores: teamGraphScores[team.ID],
 			BestScore: &resourcespb.Leaderboard_LeaderboardItem_LeaderboardScore{
