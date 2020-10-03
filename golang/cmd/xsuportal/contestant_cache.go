@@ -44,6 +44,7 @@ func (c *ContestantCache) CanFreeze(e echo.Context) (bool, error) {
 
 // 情報を確定させる
 func (c *ContestantCache) Freeze(e echo.Context) error {
+	e.Logger().Info("Freezing...")
 	ctx := e.Request().Context()
 
 	var contestants []xsuportal.Contestant
