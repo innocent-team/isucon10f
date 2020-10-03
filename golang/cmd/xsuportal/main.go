@@ -1371,7 +1371,6 @@ func halt(e echo.Context, code int, humanMessage string, err error) error {
 	return e.Blob(code, "application/vnd.google.protobuf; proto=xsuportal.proto.Error", res)
 }
 
-// TODO: ctxわたす
 func makeClarificationPB(ctx context.Context, db sqlx.QueryerContext, c *xsuportal.Clarification, t *xsuportal.Team) (*resourcespb.Clarification, error) {
 	team, err := makeTeamPB(ctx, db, t, false, true)
 	if err != nil {
@@ -1393,7 +1392,6 @@ func makeClarificationPB(ctx context.Context, db sqlx.QueryerContext, c *xsuport
 	return pb, nil
 }
 
-// TODO: ctxわたす
 func makeTeamPB(ctx context.Context, db sqlx.QueryerContext, t *xsuportal.Team, detail bool, enableMembers bool) (*resourcespb.Team, error) {
 	pb := &resourcespb.Team{
 		Id:        t.ID,
