@@ -507,6 +507,11 @@ func (*ContestantService) GetBenchmarkJob(e echo.Context) error {
 }
 
 func getTeamsMapByIDs(ctx context.Context, db *sqlx.DB, ids []int64) (teamMap map[int64]xsuportal.Team, err error) {
+	teamMap = make(map[int64]xsuportal.Team)
+	// IN句に渡すidの列が空なら即座に空のmapを返す
+	if len(ids) == 0 {
+		return
+	}
 	query, args, err := sqlx.In("SELECT * FROM `teams` WHERE `id` IN (?)", ids)
 	if err != nil {
 		return nil, err
@@ -520,7 +525,6 @@ func getTeamsMapByIDs(ctx context.Context, db *sqlx.DB, ids []int64) (teamMap ma
 	if err != nil {
 		return nil, err
 	}
-	teamMap = make(map[int64]xsuportal.Team)
 	for _, team := range teams {
 		teamMap[team.ID] = team
 	}
