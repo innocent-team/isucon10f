@@ -17,6 +17,12 @@ build: $(GOFILES) ## Build executable files
 clean: ## Cleanup files
 	@$(RM) -r $(BINDIR)
 
-.PHONY: help
+.PHONY: help public debug
 help: ## Show help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+public:
+	(cd ../frontend; npm install; npm run build)
+
+debug:
+	(cd ../frontend; ../golang/bin/xsuportal)
