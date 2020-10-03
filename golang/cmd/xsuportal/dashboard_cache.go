@@ -49,7 +49,8 @@ func (d *DashboardCache) DashboardUpdater() {
 		select {
 		case <-t.C:
 			func() {
-				log.Info("Update dashboard cache")
+				start := time.Now()
+				log.Info("Update dashboard cache start")
 				d.Mutex.Lock()
 				defer d.Mutex.Unlock()
 				req, err := http.NewRequest("GET", "/dashboard_update", nil)
@@ -65,6 +66,8 @@ func (d *DashboardCache) DashboardUpdater() {
 					return
 				}
 				d.Dashboard = fromDB
+				end := time.Now()
+				log.Infof("Update dashboard cache finish: duration=%v", end.Sub(start))
 			}()
 		}
 	}
