@@ -41,7 +41,7 @@ import (
 )
 
 const (
-	TeamCapacity               = 10
+	TeamCapacity               = 30
 	AdminID                    = "admin"
 	AdminPassword              = "admin"
 	DebugContestStatusFilePath = "/tmp/XSUPORTAL_CONTEST_STATUS"
@@ -80,7 +80,8 @@ func main() {
 	srv.Use(nrecho.Middleware(nrApp))
 
 	db, _ = xsuportal.GetDB()
-	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(24)
+	db.SetMaxOpenConns(24)
 
 	srv.Use(middleware.Logger())
 	srv.Use(middleware.Recover())
