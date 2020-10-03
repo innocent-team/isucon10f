@@ -88,7 +88,7 @@ func main() {
 	echopprof.Wrap(srv)
 
 	// Dashboard cache updater
-	go dashboardCache.DashboardUpdater()
+	// go dashboardCache.DashboardUpdater()
 
 	srv.File("/", "public/audience.html")
 	srv.File("/registration", "public/audience.html")
