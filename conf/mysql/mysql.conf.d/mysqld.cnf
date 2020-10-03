@@ -80,7 +80,7 @@ log_error = /var/log/mysql/error.log
 disable-log-bin
 
 max_connections = 1024
-innodb_buffer_pool_size = 800M # TODO!!!!!
+innodb_buffer_pool_size = 1600M
 innodb_flush_log_at_trx_commit = 0
 innodb_file_per_table=ON
 innodb_flush_method=O_DIRECT
