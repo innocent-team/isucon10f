@@ -11,4 +11,3 @@ popd
 # sudo systemctl start mysql.service
 
 sudo systemctl restart xsuportal-web-golang.service
-sudo systemctl restart xsuportal-api-golang.service
