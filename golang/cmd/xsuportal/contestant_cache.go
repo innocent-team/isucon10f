@@ -85,7 +85,7 @@ func (c *ContestantCache) UpdateFreeze(e echo.Context) error {
 
 // 情報を確定できるか確認する．確定できるなら確定する．キャッシュを使えるなら使う．
 func (c *ContestantCache) ContestantByID(e echo.Context, id string) (*xsuportal.Contestant, error) {
-	c.UpdateFreeze(e)
+	//c.UpdateFreeze(e)
 
 	if c.Freezed {
 		contestant, ok := c.Contestants[id]
@@ -109,7 +109,7 @@ func (c *ContestantCache) ContestantByID(e echo.Context, id string) (*xsuportal.
 }
 
 func (c *ContestantCache) TeamByID(e echo.Context, id int64) (*xsuportal.Team, error) {
-	c.UpdateFreeze(e)
+	//c.UpdateFreeze(e)
 
 	if c.Freezed {
 		team, ok := c.Teams[id]
