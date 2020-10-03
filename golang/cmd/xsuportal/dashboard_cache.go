@@ -4,11 +4,12 @@ import (
 	"sync"
 	"time"
 
-	resourcespb "github.com/isucon/isucon10-final/webapp/golang/proto/xsuportal/resources"
+	audiencepb "github.com/isucon/isucon10-final/webapp/golang/proto/xsuportal/services/audience"
 	"github.com/labstack/echo/v4"
+	"google.golang.org/protobuf/proto"
 )
 
-type DashboardData = *resourcespb.Leaderboard
+type DashboardData = []byte
 
 type DashboardCache struct {
 	Dashboard      DashboardData
@@ -61,5 +62,8 @@ func GetFromDB(e echo.Context) (DashboardData, error) {
 	if err != nil {
 		return nil, err
 	}
-	return dashboardFromDB, nil
+	dashboardReponse := &audiencepb.DashboardResponse{
+		Leaderboard: dashboardFromDB,
+	}
+	return proto.Marshal(dashboardReponse)
 }
