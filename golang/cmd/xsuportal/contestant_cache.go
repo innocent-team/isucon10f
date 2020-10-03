@@ -121,13 +121,13 @@ func (c *ContestantCache) TeamByID(e echo.Context, id int64) (*xsuportal.Team, e
 	}
 
 	var team xsuportal.Team
-	query := "SELECT * FROM `contestants` WHERE `id` = ? LIMIT 1"
+	query := "SELECT * FROM `teams` WHERE `id` = ? LIMIT 1"
 	err := sqlx.GetContext(e.Request().Context(), db, &team, query, id)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("query contestant: %w", err)
+		return nil, fmt.Errorf("query team: %w", err)
 	}
 	return &team, nil
 }
