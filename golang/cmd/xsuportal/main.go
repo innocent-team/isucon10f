@@ -1198,7 +1198,7 @@ func (*AudienceService) ListTeams(e echo.Context) error {
 }
 
 func (*AudienceService) Dashboard(e echo.Context) error {
-	leaderboard, err := makeLeaderboardPB(e, 0)
+	leaderboard, err := dashboardCache.Get(e)
 	if err != nil {
 		return fmt.Errorf("make leaderboard: %w", err)
 	}
