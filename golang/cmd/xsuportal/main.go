@@ -29,6 +29,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	xsuportal "github.com/isucon/isucon10-final/webapp/golang"
+	echopprof "github.com/isucon/isucon10-final/webapp/golang/echo-pprof"
 	xsuportalpb "github.com/isucon/isucon10-final/webapp/golang/proto/xsuportal"
 	resourcespb "github.com/isucon/isucon10-final/webapp/golang/proto/xsuportal/resources"
 	adminpb "github.com/isucon/isucon10-final/webapp/golang/proto/xsuportal/services/admin"
@@ -84,6 +85,7 @@ func main() {
 	srv.Use(middleware.Logger())
 	srv.Use(middleware.Recover())
 	srv.Use(session.Middleware(sessions.NewCookieStore([]byte("tagomoris"))))
+	echopprof.Wrap(srv)
 
 	srv.File("/", "public/audience.html")
 	srv.File("/registration", "public/audience.html")
