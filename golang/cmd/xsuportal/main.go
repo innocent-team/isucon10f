@@ -1243,7 +1243,7 @@ func getCurrentContestant(e echo.Context, db sqlx.QueryerContext) (*xsuportal.Co
 	if !ok {
 		return nil, nil
 	}
-	contestant, err := contestantCache.GetByID(e, contestantID.(string))
+	contestant, err := contestantCache.ContestantByID(e, contestantID.(string))
 	if err != nil {
 		return nil, fmt.Errorf("contestant getByID: %w", err)
 	}
@@ -1282,7 +1282,6 @@ func getCurrentContestantLock(e echo.Context, db sqlx.QueryerContext) (*xsuporta
 }
 
 func getCurrentTeam(e echo.Context, db sqlx.QueryerContext, contestant *xsuportal.Contestant) (*xsuportal.Team, error) {
-	ctx := e.Request().Context()
 	xc := getXsuportalContext(e)
 	if xc.Team != nil {
 		return xc.Team, nil
@@ -1290,17 +1289,11 @@ func getCurrentTeam(e echo.Context, db sqlx.QueryerContext, contestant *xsuporta
 	if contestant == nil {
 		return nil, nil
 	}
-	var team xsuportal.Team
-	query := "SELECT * FROM `teams` WHERE `id` = ? LIMIT 1"
-
-	err := sqlx.GetContext(ctx, db, &team, query, contestant.TeamID.Int64)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
+	team, err := contestantCache.TeamByID(e, contestant.TeamID.Int64)
 	if err != nil {
-		return nil, fmt.Errorf("query team: %w", err)
+		return nil, fmt.Errorf("team by id: %w", err)
 	}
-	xc.Team = &team
+	xc.Team = team
 	return xc.Team, nil
 }
 

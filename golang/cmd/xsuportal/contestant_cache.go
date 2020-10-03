@@ -72,7 +72,7 @@ func (c *ContestantCache) Freeze(e echo.Context) error {
 }
 
 // 情報を確定できるか確認する．確定できるなら確定する．キャッシュを使えるなら使う．
-func (c *ContestantCache) GetByID(e echo.Context, id string) (*xsuportal.Contestant, error) {
+func (c *ContestantCache) ContestantByID(e echo.Context, id string) (*xsuportal.Contestant, error) {
 	ok, err := c.CanFreeze(e)
 	if err != nil {
 		return nil, err
@@ -84,7 +84,8 @@ func (c *ContestantCache) GetByID(e echo.Context, id string) (*xsuportal.Contest
 	if c.Freezed {
 		contestant, ok := c.Contestants[id]
 		if !ok {
-			return nil, errors.Errorf("Missing user in Freezed", id)
+			e.Logger().Warnf("Missing contestant id in Freezed", id)
+			return nil, nil
 		}
 		return &contestant, nil
 	}
@@ -99,4 +100,34 @@ func (c *ContestantCache) GetByID(e echo.Context, id string) (*xsuportal.Contest
 		return nil, fmt.Errorf("query contestant: %w", err)
 	}
 	return &contestant, nil
+}
+
+func (c *ContestantCache) TeamByID(e echo.Context, id int64) (*xsuportal.Team, error) {
+	ok, err := c.CanFreeze(e)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		c.Freeze(e)
+	}
+
+	if c.Freezed {
+		team, ok := c.Teams[id]
+		if !ok {
+			e.Logger().Warnf("Missing team id in Freezed", id)
+			return nil, nil
+		}
+		return &team, nil
+	}
+
+	var team xsuportal.Team
+	query := "SELECT * FROM `contestants` WHERE `id` = ? LIMIT 1"
+	err = sqlx.GetContext(e.Request().Context(), db, &team, query, id)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("query contestant: %w", err)
+	}
+	return &team, nil
 }
