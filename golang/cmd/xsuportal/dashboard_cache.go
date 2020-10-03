@@ -15,9 +15,8 @@ import (
 type DashboardData = []byte
 
 type DashboardCache struct {
-	Dashboard      DashboardData
-	CacheCreatedAt time.Time
-	Mutex          sync.RWMutex
+	Dashboard DashboardData
+	Mutex     sync.RWMutex
 }
 
 var dashboardCache DashboardCache
@@ -26,17 +25,8 @@ func InitDashboardCache() {
 	dashboardCache = DashboardCache{}
 }
 
-// キャッシュが1秒以上古びているかどうか
-func (d *DashboardCache) IsExpired(now time.Time) bool {
-	// 怖いのでちょっと安全側に 0.8 秒とる
-	cacheCreatedAtPlus1sec := d.CacheCreatedAt.Add(800 * time.Millisecond)
-	return cacheCreatedAtPlus1sec.Before(now)
-}
-
 // キャッシュから取ってくる
 func (d *DashboardCache) Get(e echo.Context) (DashboardData, error) {
-	d.Mutex.RLock()
-	defer d.Mutex.RUnlock()
 	return d.Dashboard, nil
 }
 
@@ -75,8 +65,6 @@ func (d *DashboardCache) DashboardUpdater() {
 					return
 				}
 				d.Dashboard = fromDB
-				now := time.Now()
-				d.CacheCreatedAt = now
 			}()
 		}
 	}
