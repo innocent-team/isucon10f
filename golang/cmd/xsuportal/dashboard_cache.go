@@ -59,6 +59,7 @@ func (d *DashboardCache) DashboardUpdater() {
 		select {
 		case <-t.C:
 			func() {
+				log.Info("Update dashboard cache")
 				d.Mutex.Lock()
 				defer d.Mutex.Unlock()
 				req, err := http.NewRequest("GET", "/dashboard_update", nil)
