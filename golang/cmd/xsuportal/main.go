@@ -232,6 +232,7 @@ func (*AdminService) ListClarifications(e echo.Context) error {
 	res := &adminpb.ListClarificationsResponse{}
 	for _, clarification := range clarifications {
 		var team xsuportal.Team
+		// TODO: N+1
 		err := db.GetContext(ctx,
 			&team,
 			"SELECT * FROM `teams` WHERE `id` = ? LIMIT 1",
@@ -521,6 +522,7 @@ func (*ContestantService) ListClarifications(e echo.Context) error {
 	res := &contestantpb.ListClarificationsResponse{}
 	for _, clarification := range clarifications {
 		var team xsuportal.Team
+		// TODO: N+1
 		err := db.GetContext(ctx,
 			&team,
 			"SELECT * FROM `teams` WHERE `id` = ? LIMIT 1",
@@ -1140,6 +1142,7 @@ func (*AudienceService) ListTeams(e echo.Context) error {
 	res := &audiencepb.ListTeamsResponse{}
 	for _, team := range teams {
 		var members []xsuportal.Contestant
+		// TODO: N+1
 		err := db.SelectContext(ctx,
 			&members,
 			"SELECT * FROM `contestants` WHERE `team_id` = ? ORDER BY `created_at`",
@@ -1383,6 +1386,7 @@ func makeTeamPB(ctx context.Context, db sqlx.QueryerContext, t *xsuportal.Team, 
 			return nil, fmt.Errorf("select members: %w", err)
 		}
 		for _, member := range members {
+			// TODO: N+1 (makeContestantPB内でSELECTしてる)
 			pb.Members = append(pb.Members, makeContestantPB(&member))
 			pb.MemberIds = append(pb.MemberIds, member.ID)
 		}
@@ -1542,6 +1546,7 @@ func makeLeaderboardPB(e echo.Context, teamID int64) (*resourcespb.Leaderboard, 
 	}
 	pb := &resourcespb.Leaderboard{}
 	for _, team := range leaderboard {
+		// TODO: N+1 (makeTeamPB内でSELECTしてる)
 		t, _ := makeTeamPB(ctx, db, team.Team(), false, false)
 		item := &resourcespb.Leaderboard_LeaderboardItem{
 			Scores: teamGraphScores[team.ID],
