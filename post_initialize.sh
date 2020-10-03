@@ -21,5 +21,3 @@ contest {
   }
 }
 ''' | protoc --proto_path $proto --encode=xsuportal.proto.services.admin.InitializeRequest xsuportal/services/admin/initialize.proto  | curl -k -X POST -H "content-type: application/vnd.google.protobuf" https://localhost:4433/initialize --data-binary @-
-
-
