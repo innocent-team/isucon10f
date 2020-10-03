@@ -14,6 +14,7 @@ require (
 	github.com/newrelic/go-agent v3.9.0+incompatible // indirect
 	github.com/newrelic/go-agent/v3 v3.9.0
 	github.com/newrelic/go-agent/v3/integrations/nrecho-v4 v1.0.0
+	github.com/newrelic/go-agent/v3/integrations/nrgrpc v1.1.0
 	github.com/newrelic/go-agent/v3/integrations/nrmysql v1.2.0
 	golang.org/x/crypto v0.0.0-20200930160638-afb6bcd081ae // indirect
 	golang.org/x/net v0.0.0-20200930145003-4acb6c075d10 // indirect
