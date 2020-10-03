@@ -16,6 +16,8 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/newrelic/go-agent/v3/newrelic"
+
 	xsuportal "github.com/isucon/isucon10-final/webapp/golang"
 	"github.com/isucon/isucon10-final/webapp/golang/proto/xsuportal/resources"
 	"github.com/isucon/isucon10-final/webapp/golang/proto/xsuportal/services/bench"
@@ -23,6 +25,7 @@ import (
 )
 
 var db *sqlx.DB
+var nrApp *newrelic.Application
 
 type benchmarkQueueService struct {
 }

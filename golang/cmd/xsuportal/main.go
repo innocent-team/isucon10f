@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +23,9 @@ import (
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/gommon/log"
+	"github.com/newrelic/go-agent/v3/integrations/nrecho-v4"
+	"github.com/newrelic/go-agent/v3/newrelic"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	xsuportal "github.com/isucon/isucon10-final/webapp/golang"
@@ -46,6 +50,7 @@ const (
 
 var db *sqlx.DB
 var notifier xsuportal.Notifier
+var nrApp *newrelic.Application
 
 func main() {
 	srv := echo.New()
@@ -60,6 +65,18 @@ func main() {
 			_ = halt(c, http.StatusInternalServerError, "", err)
 		}
 	}
+
+	// New Relic
+	nrLicenseKey := os.Getenv("NEWRELIC_LICENSE_KEY")
+	nrApp, err := newrelic.NewApplication(
+		newrelic.ConfigAppName("isucon10f-benchmark_server"),
+		newrelic.ConfigDistributedTracerEnabled(true),
+		newrelic.ConfigLicense(nrLicenseKey),
+	)
+	if err != nil {
+		log.Infof("NewRelic app not configured, ignoring: %s", err)
+	}
+	srv.Use(nrecho.Middleware(nrApp))
 
 	db, _ = xsuportal.GetDB()
 	db.SetMaxOpenConns(10)
