@@ -1420,7 +1420,6 @@ func makeTeamPB(ctx context.Context, db sqlx.QueryerContext, t *xsuportal.Team, 
 			return nil, fmt.Errorf("select members: %w", err)
 		}
 		for _, member := range members {
-			// TODO: N+1 (makeContestantPB内でSELECTしてる)
 			pb.Members = append(pb.Members, makeContestantPB(&member))
 			pb.MemberIds = append(pb.MemberIds, member.ID)
 		}
