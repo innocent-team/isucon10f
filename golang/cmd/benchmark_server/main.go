@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -16,6 +17,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/newrelic/go-agent/v3/integrations/nrgrpc"
 	"github.com/newrelic/go-agent/v3/newrelic"
 
 	xsuportal "github.com/isucon/isucon10-final/webapp/golang"
@@ -272,6 +274,17 @@ func pollBenchmarkJob(db sqlx.Queryer) (*xsuportal.BenchmarkJob, error) {
 }
 
 func main() {
+	// New Relic
+	nrLicenseKey := os.Getenv("NEWRELIC_LICENSE_KEY")
+	nrApp, err := newrelic.NewApplication(
+		newrelic.ConfigAppName("isucon10f-xsuportal"),
+		newrelic.ConfigDistributedTracerEnabled(true),
+		newrelic.ConfigLicense(nrLicenseKey),
+	)
+	if err != nil {
+		log.Printf("NewRelic app not configured, ignoring: %s", err)
+	}
+
 	port := util.GetEnv("PORT", "50051")
 	address := ":" + port
 
@@ -284,7 +297,10 @@ func main() {
 	db, _ = xsuportal.GetDB()
 	db.SetMaxOpenConns(10)
 
-	server := grpc.NewServer()
+	server := grpc.NewServer(
+		grpc.UnaryInterceptor(nrgrpc.UnaryServerInterceptor(nrApp)),
+		grpc.StreamInterceptor(nrgrpc.StreamServerInterceptor(nrApp)),
+	)
 
 	queue := &benchmarkQueueService{}
 	report := &benchmarkReportService{}
