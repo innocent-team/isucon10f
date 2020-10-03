@@ -31,29 +31,11 @@ func (d *DashboardCache) IsExpired(now time.Time) bool {
 	return cacheCreatedAtPlus1sec.Before(now)
 }
 
-// キャッシュから取ってくる、キャッシュが失効してたらデータ作りなおしてsetする
+// キャッシュから取ってくる
 func (d *DashboardCache) Get(e echo.Context) (DashboardData, error) {
-	now := time.Now()
-
 	d.Mutex.RLock()
-	expired := d.IsExpired(now)
-	d.Mutex.RUnlock()
-
-	if expired {
-		d.Mutex.Lock()
-		fromDB, err := GetFromDB(e)
-		if err != nil {
-			return nil, err
-		}
-		d.Dashboard = fromDB
-		d.CacheCreatedAt = now
-		d.Mutex.Unlock()
-	}
-
-	d.Mutex.RLock()
-	ret := d.Dashboard
-	d.Mutex.RUnlock()
-	return ret, nil
+	defer d.Mutex.RUnlock()
+	return d.Dashboard, nil
 }
 
 // キャッシュの元となるデータを取ってくる
