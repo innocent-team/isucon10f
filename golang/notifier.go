@@ -167,7 +167,7 @@ func (n *Notifier) NotifyClarificationAnswered(ctx context.Context, db *sqlx.DB,
 		}
 	}
 	var contestantIDs []string
-	var contestantIDToTeamIDMap map[string]int64
+	contestantIDToTeamIDMap := make(map[string]int64)
 	for _, contestant := range contestants {
 		contestantIDs = append(contestantIDs, contestant.ID)
 		contestantIDToTeamIDMap[contestant.ID] = contestant.TeamID
