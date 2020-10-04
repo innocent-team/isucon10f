@@ -120,7 +120,26 @@ func SendWebPush(vapidKey *ecdsa.PrivateKey, notificationPB *resources.Notificat
 	return nil
 }
 
-func (n *Notifier) NotifyClarificationAnswered(ctx context.Context, db sqlx.ExtContext, c *Clarification, updated bool) error {
+func getPushSubscriptionsByContestantIDs(ctx context.Context, db *sqlx.DB, contestantIDs []string) (subscriptions []*PushSubscription, err error) {
+	if len(contestantIDs) == 0 {
+		return
+	}
+	query, args, err := sqlx.In("SELECT * FROM `push_subscriptions` WHERE `contestant_id` IN (?)", contestantIDs)
+	if err != nil {
+		return nil, err
+	}
+	err = db.SelectContext(ctx,
+		&subscriptions,
+		query,
+		args...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
+func (n *Notifier) NotifyClarificationAnswered(ctx context.Context, db *sqlx.DB, c *Clarification, updated bool) error {
 	var contestants []struct {
 		ID     string `db:"id"`
 		TeamID int64  `db:"team_id"`
@@ -145,17 +164,27 @@ func (n *Notifier) NotifyClarificationAnswered(ctx context.Context, db sqlx.ExtC
 			return fmt.Errorf("select contestants(team_id=%v): %w", c.TeamID, err)
 		}
 	}
+	var contestantIDs []string
+	var contestantIDToTeamIDMap map[string]int64
 	for _, contestant := range contestants {
+		contestantIDs = append(contestantIDs, contestant.ID)
+		contestantIDToTeamIDMap[contestant.ID] = contestant.TeamID
+	}
+	pushSubscriptions, err := getPushSubscriptionsByContestantIDs(ctx, db, contestantIDs)
+	if err != nil {
+		return fmt.Errorf("select push_subscriptions: %w", err)
+	}
+	for _, pushSubscription := range pushSubscriptions {
 		notificationPB := &resources.Notification{
 			Content: &resources.Notification_ContentClarification{
 				ContentClarification: &resources.Notification_ClarificationMessage{
 					ClarificationId: c.ID,
-					Owned:           c.TeamID == contestant.TeamID,
+					Owned:           c.TeamID == contestantIDToTeamIDMap[pushSubscription.ContestantID],
 					Updated:         updated,
 				},
 			},
 		}
-		notification, err := n.notify(ctx, db, notificationPB, contestant.ID)
+		notification, err := n.notify(ctx, db, notificationPB, pushSubscription.ContestantID)
 		if err != nil {
 			return fmt.Errorf("notify: %w", err)
 		}
@@ -167,30 +196,14 @@ func (n *Notifier) NotifyClarificationAnswered(ctx context.Context, db sqlx.ExtC
 				log.Errorf("notify: %w", err)
 				continue
 			}
-			var pushSubscriptions []*PushSubscription
-			err = sqlx.SelectContext(ctx,
-				db,
-				&pushSubscriptions,
-				`
-					SELECT * FROM push_subscriptions
-					WHERE contestant_id = ?
-				`,
-				contestant.ID,
-			)
+			err = SendWebPush(vapidKey, notificationPB, pushSubscription)
 			if err != nil {
 				log.Errorf("notify: %w", err)
 				continue
 			}
-			for _, pushSubscription := range pushSubscriptions {
-				err = SendWebPush(vapidKey, notificationPB, pushSubscription)
-				if err != nil {
-					log.Errorf("notify: %w", err)
-					continue
-				}
-			}
 			_, err = db.ExecContext(ctx,
 				"UPDATE `notifications` SET `read` = TRUE WHERE `contestant_id` = ? AND `read` = FALSE",
-				contestant.ID,
+				pushSubscription.ContestantID,
 			)
 			if err != nil {
 				log.Errorf("notify: %w", err)
