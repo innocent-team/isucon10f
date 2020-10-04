@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/x509"
-	"database/sql"
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
@@ -15,6 +14,7 @@ import (
 	"github.com/SherClockHolmes/webpush-go"
 	"github.com/golang/protobuf/proto"
 	"github.com/jmoiron/sqlx"
+	"github.com/labstack/gommon/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/isucon/isucon10-final/webapp/golang/proto/xsuportal/resources"
@@ -164,7 +164,8 @@ func (n *Notifier) NotifyClarificationAnswered(ctx context.Context, db sqlx.ExtC
 			notificationPB.CreatedAt = timestamppb.New(notification.CreatedAt)
 			vapidKey, err := GetVAPIDKey(WebpushVAPIDPrivateKeyPath)
 			if err != nil {
-				return fmt.Errorf("notify: %w", err)
+				log.Errorf("notify: %w", err)
+				continue
 			}
 			var pushSubscriptions []*PushSubscription
 			err = sqlx.SelectContext(ctx,
@@ -177,15 +178,14 @@ func (n *Notifier) NotifyClarificationAnswered(ctx context.Context, db sqlx.ExtC
 				contestant.ID,
 			)
 			if err != nil {
-				if err == sql.ErrNoRows {
-					continue
-				}
-				return fmt.Errorf("notify: %w", err)
+				log.Errorf("notify: %w", err)
+				continue
 			}
 			for _, pushSubscription := range pushSubscriptions {
 				err = SendWebPush(vapidKey, notificationPB, pushSubscription)
 				if err != nil {
-					return fmt.Errorf("notify: %w", err)
+					log.Errorf("notify: %w", err)
+					continue
 				}
 			}
 			_, err = db.ExecContext(ctx,
@@ -193,7 +193,8 @@ func (n *Notifier) NotifyClarificationAnswered(ctx context.Context, db sqlx.ExtC
 				contestant.ID,
 			)
 			if err != nil {
-				return fmt.Errorf("update notifications: %w", err)
+				log.Errorf("notify: %w", err)
+				continue
 			}
 		}
 	}
@@ -231,7 +232,8 @@ func (n *Notifier) NotifyBenchmarkJobFinished(ctx context.Context, db sqlx.ExtCo
 			notificationPB.CreatedAt = timestamppb.New(notification.CreatedAt)
 			vapidKey, err := GetVAPIDKey(WebpushVAPIDPrivateKeyPath)
 			if err != nil {
-				return fmt.Errorf("notify: %w", err)
+				log.Errorf("notify: %w", err)
+				continue
 			}
 			var pushSubscriptions []*PushSubscription
 			err = sqlx.SelectContext(ctx,
@@ -244,15 +246,14 @@ func (n *Notifier) NotifyBenchmarkJobFinished(ctx context.Context, db sqlx.ExtCo
 				contestant.ID,
 			)
 			if err != nil {
-				if err == sql.ErrNoRows {
-					continue
-				}
-				return fmt.Errorf("notify: %w", err)
+				log.Errorf("notify: %w", err)
+				continue
 			}
 			for _, pushSubscription := range pushSubscriptions {
 				err = SendWebPush(vapidKey, notificationPB, pushSubscription)
 				if err != nil {
-					return fmt.Errorf("notify: %w", err)
+					log.Errorf("notify: %w", err)
+					continue
 				}
 			}
 			_, err = db.ExecContext(ctx,
@@ -260,7 +261,8 @@ func (n *Notifier) NotifyBenchmarkJobFinished(ctx context.Context, db sqlx.ExtCo
 				contestant.ID,
 			)
 			if err != nil {
-				return fmt.Errorf("update notifications: %w", err)
+				log.Errorf("notify: %w", err)
+				continue
 			}
 		}
 	}
