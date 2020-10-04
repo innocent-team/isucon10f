@@ -1,6 +1,7 @@
 package xsuportal
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/x509"
@@ -119,13 +120,13 @@ func SendWebPush(vapidKey *ecdsa.PrivateKey, notificationPB *resources.Notificat
 	return nil
 }
 
-func (n *Notifier) NotifyClarificationAnswered(db sqlx.Ext, c *Clarification, updated bool) error {
+func (n *Notifier) NotifyClarificationAnswered(ctx context.Context, db sqlx.ExtContext, c *Clarification, updated bool) error {
 	var contestants []struct {
 		ID     string `db:"id"`
 		TeamID int64  `db:"team_id"`
 	}
 	if c.Disclosed.Valid && c.Disclosed.Bool {
-		err := sqlx.Select(
+		err := sqlx.SelectContext(ctx,
 			db,
 			&contestants,
 			"SELECT `id`, `team_id` FROM `contestants` WHERE `team_id` IS NOT NULL",
@@ -134,7 +135,7 @@ func (n *Notifier) NotifyClarificationAnswered(db sqlx.Ext, c *Clarification, up
 			return fmt.Errorf("select all contestants: %w", err)
 		}
 	} else {
-		err := sqlx.Select(
+		err := sqlx.SelectContext(ctx,
 			db,
 			&contestants,
 			"SELECT `id`, `team_id` FROM `contestants` WHERE `team_id` = ?",
@@ -154,7 +155,7 @@ func (n *Notifier) NotifyClarificationAnswered(db sqlx.Ext, c *Clarification, up
 				},
 			},
 		}
-		notification, err := n.notify(db, notificationPB, contestant.ID)
+		notification, err := n.notify(ctx, db, notificationPB, contestant.ID)
 		if err != nil {
 			return fmt.Errorf("notify: %w", err)
 		}
@@ -166,7 +167,7 @@ func (n *Notifier) NotifyClarificationAnswered(db sqlx.Ext, c *Clarification, up
 				return fmt.Errorf("notify: %w", err)
 			}
 			var pushSubscriptions []*PushSubscription
-			err = sqlx.Select(
+			err = sqlx.SelectContext(ctx,
 				db,
 				&pushSubscriptions,
 				`
@@ -187,7 +188,7 @@ func (n *Notifier) NotifyClarificationAnswered(db sqlx.Ext, c *Clarification, up
 					return fmt.Errorf("notify: %w", err)
 				}
 			}
-			_, err = db.Exec(
+			_, err = db.ExecContext(ctx,
 				"UPDATE `notifications` SET `read` = TRUE WHERE `contestant_id` = ? AND `read` = FALSE",
 				contestant.ID,
 			)
@@ -199,12 +200,12 @@ func (n *Notifier) NotifyClarificationAnswered(db sqlx.Ext, c *Clarification, up
 	return nil
 }
 
-func (n *Notifier) NotifyBenchmarkJobFinished(db sqlx.Ext, job *BenchmarkJob) error {
+func (n *Notifier) NotifyBenchmarkJobFinished(ctx context.Context, db sqlx.ExtContext, job *BenchmarkJob) error {
 	var contestants []struct {
 		ID     string `db:"id"`
 		TeamID int64  `db:"team_id"`
 	}
-	err := sqlx.Select(
+	err := sqlx.SelectContext(ctx,
 		db,
 		&contestants,
 		"SELECT `id`, `team_id` FROM `contestants` WHERE `team_id` = ?",
@@ -221,7 +222,7 @@ func (n *Notifier) NotifyBenchmarkJobFinished(db sqlx.Ext, job *BenchmarkJob) er
 				},
 			},
 		}
-		notification, err := n.notify(db, notificationPB, contestant.ID)
+		notification, err := n.notify(ctx, db, notificationPB, contestant.ID)
 		if err != nil {
 			return fmt.Errorf("notify: %w", err)
 		}
@@ -233,7 +234,7 @@ func (n *Notifier) NotifyBenchmarkJobFinished(db sqlx.Ext, job *BenchmarkJob) er
 				return fmt.Errorf("notify: %w", err)
 			}
 			var pushSubscriptions []*PushSubscription
-			err = sqlx.Select(
+			err = sqlx.SelectContext(ctx,
 				db,
 				&pushSubscriptions,
 				`
@@ -254,7 +255,7 @@ func (n *Notifier) NotifyBenchmarkJobFinished(db sqlx.Ext, job *BenchmarkJob) er
 					return fmt.Errorf("notify: %w", err)
 				}
 			}
-			_, err = db.Exec(
+			_, err = db.ExecContext(ctx,
 				"UPDATE `notifications` SET `read` = TRUE WHERE `contestant_id` = ? AND `read` = FALSE",
 				contestant.ID,
 			)
@@ -266,13 +267,13 @@ func (n *Notifier) NotifyBenchmarkJobFinished(db sqlx.Ext, job *BenchmarkJob) er
 	return nil
 }
 
-func (n *Notifier) notify(db sqlx.Ext, notificationPB *resources.Notification, contestantID string) (*Notification, error) {
+func (n *Notifier) notify(ctx context.Context, db sqlx.ExtContext, notificationPB *resources.Notification, contestantID string) (*Notification, error) {
 	m, err := proto.Marshal(notificationPB)
 	if err != nil {
 		return nil, fmt.Errorf("marshal notification: %w", err)
 	}
 	encodedMessage := base64.StdEncoding.EncodeToString(m)
-	res, err := db.Exec(
+	res, err := db.ExecContext(ctx,
 		"INSERT INTO `notifications` (`contestant_id`, `encoded_message`, `read`, `created_at`, `updated_at`) VALUES (?, ?, FALSE, NOW(6), NOW(6))",
 		contestantID,
 		encodedMessage,
@@ -282,7 +283,7 @@ func (n *Notifier) notify(db sqlx.Ext, notificationPB *resources.Notification, c
 	}
 	lastInsertID, _ := res.LastInsertId()
 	var notification Notification
-	err = sqlx.Get(
+	err = sqlx.GetContext(ctx,
 		db,
 		&notification,
 		"SELECT * FROM `notifications` WHERE `id` = ? LIMIT 1",

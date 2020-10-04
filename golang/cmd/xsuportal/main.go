@@ -373,7 +373,7 @@ func (*AdminService) RespondClarification(e echo.Context) error {
 		return fmt.Errorf("commit tx: %w", err)
 	}
 	updated := wasAnswered && wasDisclosed == clarification.Disclosed
-	if err := notifier.NotifyClarificationAnswered(db, &clarification, updated); err != nil {
+	if err := notifier.NotifyClarificationAnswered(ctx, db, &clarification, updated); err != nil {
 		return fmt.Errorf("notify clarification answered: %w", err)
 	}
 	return writeProto(e, http.StatusOK, &adminpb.RespondClarificationResponse{
