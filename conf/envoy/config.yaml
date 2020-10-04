@@ -57,13 +57,17 @@ static_resources:
                           route:
                             cluster: xsuportal_api
                         - match:
+                            prefix: "/api/audience/dashboard"
+                          route:
+                            cluster: xsuportal_web_varnish
+                        - match:
                             prefix: "/api/"
                           route:
                             cluster: xsuportal_web
                         - match:
                             prefix: "/initialize"
                           route:
-                            cluster: xsuportal_web
+                            cluster: xsuportal_web_varnish
                         - match:
                             prefix: "/"
                           route:
@@ -100,6 +104,19 @@ static_resources:
                     socket_address:
                       address: "10.162.29.102"
                       port_value: 9292
+    - name: xsuportal_web_varnish
+      type: STATIC
+      connect_timeout: 0.25s
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: xsuportal_web_varnish
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: "10.162.29.102"
+                      port_value: 6081
     - name: xsuportal_api
       type: STATIC
       connect_timeout: 0.25s
