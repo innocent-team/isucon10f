@@ -67,7 +67,7 @@ static_resources:
                         - match:
                             prefix: "/initialize"
                           route:
-                            cluster: xsuportal_web
+                            cluster: xsuportal_web_varnish
                         - match:
                             prefix: "/"
                           route:

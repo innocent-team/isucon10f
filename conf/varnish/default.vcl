@@ -23,6 +23,9 @@ sub vcl_recv {
     #
     # Typically you clean up the request here, removing cookies you don't need,
     # rewriting the request, etc.
+    if (req.url ~ "^/initialize") {
+       ban("obj.http.url ~ ^/api/audience/dashboard");
+    }
 }
 
 sub vcl_backend_response {
