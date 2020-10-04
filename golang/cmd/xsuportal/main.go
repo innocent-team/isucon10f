@@ -1229,6 +1229,7 @@ func (*AudienceService) Dashboard(e echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("make leaderboard: %w", err)
 	}
+	e.Response().Header().Set("Cache-Control", "public, max-age=1")
 	return e.Blob(http.StatusOK, "application/vnd.google.protobuf", leaderboard)
 }
 
