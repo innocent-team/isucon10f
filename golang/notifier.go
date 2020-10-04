@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/x509"
+	"database/sql"
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
@@ -120,9 +121,10 @@ func SendWebPush(vapidKey *ecdsa.PrivateKey, notificationPB *resources.Notificat
 	return nil
 }
 
-func getPushSubscriptionsByContestantIDs(ctx context.Context, db *sqlx.DB, contestantIDs []string) (subscriptions []*PushSubscription, err error) {
+func getPushSubscriptionsByContestantIDs(ctx context.Context, db *sqlx.DB, contestantIDs []string) ([]*PushSubscription, error) {
+	var subscriptions []*PushSubscription
 	if len(contestantIDs) == 0 {
-		return
+		return nil, sql.ErrNoRows
 	}
 	query, args, err := sqlx.In("SELECT * FROM `push_subscriptions` WHERE `contestant_id` IN (?)", contestantIDs)
 	if err != nil {
@@ -136,7 +138,7 @@ func getPushSubscriptionsByContestantIDs(ctx context.Context, db *sqlx.DB, conte
 	if err != nil {
 		return nil, err
 	}
-	return
+	return subscriptions, nil
 }
 
 func (n *Notifier) NotifyClarificationAnswered(ctx context.Context, db *sqlx.DB, c *Clarification, updated bool) error {
