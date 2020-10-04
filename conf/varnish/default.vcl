@@ -34,8 +34,9 @@ sub vcl_backend_response {
     # Here you clean the response headers, removing silly Set-Cookie headers
     # and other mistakes your backend does.
 
-    # 共有キャッシュとして使い、クライアントキャッシュされないように Cache-Control ヘッダを落とす
-    unset beresp.http.Cache-Control;
+    if (bereq.url ~ "^/api/audience/dashboard") {
+        set beresp.ttl = 1s;
+    }
 }
 
 sub vcl_deliver {
