@@ -630,6 +630,25 @@ func (*ContestantService) Dashboard(e echo.Context) error {
 	})
 }
 
+// contestantがプッシュ通知を購読しているかどうかを返す
+func isPushNotificationSubscribedByContestant(contestant *xsuportal.Contestant) bool {
+	var pushSubscriptions []*xsuportal.PushSubscription
+	err := sqlx.Select(
+		db,
+		&pushSubscriptions,
+		`
+			SELECT * FROM push_subscriptions
+			WHERE contestant_id = ?
+		`,
+		contestant.ID,
+	)
+	// sql.ErrNoRows も含めてエラーだったら購読してないことにする
+	if err != nil {
+		return false
+	}
+	return len(pushSubscriptions) > 0
+}
+
 func (*ContestantService) ListNotifications(e echo.Context) error {
 	ctx := e.Request().Context()
 	if ok, err := loginRequired(e, db, &loginRequiredOption{Team: true}); !ok {
@@ -645,40 +664,42 @@ func (*ContestantService) ListNotifications(e echo.Context) error {
 	defer tx.Rollback()
 	contestant, _ := getCurrentContestant(e, tx, false)
 
-	var notifications []*xsuportal.Notification
-	if afterStr != "" {
-		after, err := strconv.Atoi(afterStr)
+	notifications := make([]*xsuportal.Notification, 0)
+	if !isPushNotificationSubscribedByContestant(contestant) {
+		if afterStr != "" {
+			after, err := strconv.Atoi(afterStr)
+			if err != nil {
+				return fmt.Errorf("parse after: %w", err)
+			}
+			err = tx.SelectContext(ctx,
+				&notifications,
+				"SELECT * FROM `notifications` WHERE `contestant_id` = ? AND `id` > ? ORDER BY `id`",
+				contestant.ID,
+				after,
+			)
+			if err != sql.ErrNoRows && err != nil {
+				return fmt.Errorf("select notifications(after=%v): %w", after, err)
+			}
+		} else {
+			err = tx.SelectContext(ctx,
+				&notifications,
+				"SELECT * FROM `notifications` WHERE `contestant_id` = ? ORDER BY `id`",
+				contestant.ID,
+			)
+			if err != sql.ErrNoRows && err != nil {
+				return fmt.Errorf("select notifications: %w", err)
+			}
+		}
+		_, err = tx.ExecContext(ctx,
+			"UPDATE `notifications` SET `read` = TRUE WHERE `contestant_id` = ? AND `read` = FALSE",
+			contestant.ID,
+		)
 		if err != nil {
-			return fmt.Errorf("parse after: %w", err)
+			return fmt.Errorf("update notifications: %w", err)
 		}
-		err = tx.SelectContext(ctx,
-			&notifications,
-			"SELECT * FROM `notifications` WHERE `contestant_id` = ? AND `id` > ? ORDER BY `id`",
-			contestant.ID,
-			after,
-		)
-		if err != sql.ErrNoRows && err != nil {
-			return fmt.Errorf("select notifications(after=%v): %w", after, err)
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("commit tx: %w", err)
 		}
-	} else {
-		err = tx.SelectContext(ctx,
-			&notifications,
-			"SELECT * FROM `notifications` WHERE `contestant_id` = ? ORDER BY `id`",
-			contestant.ID,
-		)
-		if err != sql.ErrNoRows && err != nil {
-			return fmt.Errorf("select notifications: %w", err)
-		}
-	}
-	_, err = tx.ExecContext(ctx,
-		"UPDATE `notifications` SET `read` = TRUE WHERE `contestant_id` = ? AND `read` = FALSE",
-		contestant.ID,
-	)
-	if err != nil {
-		return fmt.Errorf("update notifications: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit tx: %w", err)
 	}
 	team, _ := getCurrentTeam(e, db, false)
 
