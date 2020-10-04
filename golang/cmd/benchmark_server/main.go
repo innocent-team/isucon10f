@@ -56,26 +56,13 @@ func (b *benchmarkQueueService) ReceiveBenchmarkJob(ctx context.Context, req *be
 				return false, nil
 			}
 
-			var gotLock bool
-			err = tx.GetContext(ctx,
-				&gotLock,
-				"SELECT 1 FROM `benchmark_jobs` WHERE `id` = ? AND `status` = ? FOR UPDATE",
-				job.ID,
-				resources.BenchmarkJob_PENDING,
-			)
-			if err == sql.ErrNoRows {
-				return true, nil
-			}
-			if err != nil {
-				return false, fmt.Errorf("get benchmark job with lock: %w", err)
-			}
 			randomBytes := make([]byte, 16)
 			_, err = rand.Read(randomBytes)
 			if err != nil {
 				return false, fmt.Errorf("read random: %w", err)
 			}
 			handle := base64.StdEncoding.EncodeToString(randomBytes)
-			_, err = tx.ExecContext(ctx,
+			sqlRes, err := tx.ExecContext(ctx,
 				"UPDATE `benchmark_jobs` SET `status` = ?, `handle` = ? WHERE `id` = ? AND `status` = ? LIMIT 1",
 				resources.BenchmarkJob_SENT,
 				handle,
@@ -84,6 +71,13 @@ func (b *benchmarkQueueService) ReceiveBenchmarkJob(ctx context.Context, req *be
 			)
 			if err != nil {
 				return false, fmt.Errorf("update benchmark job status: %w", err)
+			}
+			rowsAffected, err := sqlRes.RowsAffected()
+			if err != nil {
+				return false, fmt.Errorf("update benchmark job status: %w", err)
+			}
+			if rowsAffected == 0 {
+				return true, nil
 			}
 
 			var contestStartsAt time.Time
