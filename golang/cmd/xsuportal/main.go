@@ -88,9 +88,6 @@ func main() {
 	srv.Use(session.Middleware(sessions.NewCookieStore([]byte("tagomoris"))))
 	echopprof.Wrap(srv)
 
-	// Dashboard cache updater
-	go dashboardCache.DashboardUpdater()
-
 	srv.File("/", "public/audience.html")
 	srv.File("/registration", "public/audience.html")
 	srv.File("/signup", "public/audience.html")
@@ -218,7 +215,6 @@ func (*AdminService) Initialize(e echo.Context) error {
 			Port: int64(port),
 		},
 	}
-	InitDashboardCache()
 	return writeProto(e, http.StatusOK, res)
 }
 
@@ -1225,7 +1221,7 @@ func (*AudienceService) ListTeams(e echo.Context) error {
 }
 
 func (*AudienceService) Dashboard(e echo.Context) error {
-	leaderboard, err := dashboardCache.Get(e)
+	leaderboard, err := GetFromDB(e)
 	if err != nil {
 		return fmt.Errorf("make leaderboard: %w", err)
 	}
