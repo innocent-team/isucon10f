@@ -104,12 +104,12 @@ static_resources:
                     socket_address:
                       address: "10.162.29.102"
                       port_value: 9292
-    - name: xsuportal_web
+    - name: xsuportal_web_varnish
       type: STATIC
       connect_timeout: 0.25s
       lb_policy: ROUND_ROBIN
       load_assignment:
-        cluster_name: xsuportal_web
+        cluster_name: xsuportal_web_varnish
         endpoints:
           - lb_endpoints:
               - endpoint:
