@@ -1185,6 +1185,33 @@ func (*RegistrationService) DeleteRegistration(e echo.Context) error {
 
 type AudienceService struct{}
 
+func getContestantsMapByTeamIDs(ctx context.Context, db *sqlx.DB, ids []int64) (contestantsMap map[int64][]xsuportal.Contestant, err error) {
+	contestantsMap = make(map[int64][]xsuportal.Contestant)
+	// IN句に渡すidの列が空なら即座に空のmapを返す
+	if len(ids) == 0 {
+		return
+	}
+	query, args, err := sqlx.In("SELECT * FROM `contestants` WHERE `id` IN (?)", ids)
+	if err != nil {
+		return nil, err
+	}
+	var contestants []xsuportal.Contestant
+	err = db.SelectContext(ctx,
+		&contestants,
+		query,
+		args...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, contestant := range contestants {
+		if contestant.TeamID.Valid {
+			contestantsMap[contestant.TeamID.Int64] = append(contestantsMap[contestant.TeamID.Int64], contestant)
+		}
+	}
+	return
+}
+
 func (*AudienceService) ListTeams(e echo.Context) error {
 	ctx := e.Request().Context()
 	var teams []xsuportal.Team
@@ -1192,18 +1219,19 @@ func (*AudienceService) ListTeams(e echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("select teams: %w", err)
 	}
+	var teamIDs []int64
+	for _, team := range teams {
+		teamIDs = append(teamIDs, team.ID)
+	}
+	contestantsMap, err := getContestantsMapByTeamIDs(ctx, db, teamIDs)
+	if err != nil {
+		return fmt.Errorf("select contestants: %w", err)
+	}
+
 	res := &audiencepb.ListTeamsResponse{}
 	for _, team := range teams {
 		var members []xsuportal.Contestant
-		// TODO: N+1
-		err := db.SelectContext(ctx,
-			&members,
-			"SELECT * FROM `contestants` WHERE `team_id` = ? ORDER BY `created_at`",
-			team.ID,
-		)
-		if err != nil {
-			return fmt.Errorf("select members(team_id=%v): %w", team.ID, err)
-		}
+		members = contestantsMap[team.ID]
 		var memberNames []string
 		isStudent := true
 		for _, member := range members {
