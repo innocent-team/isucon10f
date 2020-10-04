@@ -116,7 +116,7 @@ static_resources:
                   address:
                     socket_address:
                       address: "10.162.29.102"
-                      port_value: 6082
+                      port_value: 6081
     - name: xsuportal_api
       type: STATIC
       connect_timeout: 0.25s
