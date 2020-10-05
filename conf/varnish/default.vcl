@@ -40,7 +40,7 @@ sub vcl_backend_response {
     if (bereq.url ~ "^/api/audience/dashboard") {
         set beresp.grace = 1s;
         if (beresp.http.X-Dashboard-Freezed-Until && std.time(beresp.http.X-Dashboard-Freezed-Until, now) > now) {
-            set beresp.ttl = std.time(beresp.http.X-Dashboard-Freezed-Until, now);
+            set beresp.ttl = std.time(beresp.http.X-Dashboard-Freezed-Until, now) - now;
         } else {
             set beresp.ttl = 1s;
         }
