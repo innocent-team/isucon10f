@@ -243,14 +243,37 @@ func (*AdminService) ListClarifications(e echo.Context) error {
 	if err != sql.ErrNoRows && err != nil {
 		return fmt.Errorf("select teams: %w", err)
 	}
-
+	contestantsMap, err := getContestantsMapByTeamIDs(ctx, db, clarificationTeamIDs)
+	if err != sql.ErrNoRows && err != nil {
+		return fmt.Errorf("select contestants: %w", err)
+	}
 	for _, clarification := range clarifications {
 		var team xsuportal.Team
 		team = teamIDtoTeamMap[clarification.TeamID]
-		c, err := makeClarificationPB(ctx, db, &clarification, &team)
+		c, err := makeClarificationPBWithoutTeamPB(&clarification)
 		if err != nil {
 			return fmt.Errorf("make clarification: %w", err)
 		}
+		teamPB, err := makeTeamPB(ctx, db, &team, false, true)
+		if err != nil {
+			return fmt.Errorf("make team: %w", err)
+		}
+		members := contestantsMap[clarification.TeamID]
+		for _, member := range members {
+			teamPB.Members = append(teamPB.Members, makeContestantPB(&member))
+			teamPB.MemberIds = append(teamPB.MemberIds, member.ID)
+		}
+		if team.LeaderID.Valid {
+			teamPB.Leader = makeContestantPB(func() *xsuportal.Contestant {
+				for _, member := range members {
+					if member.ID == team.LeaderID.String {
+						return &member
+					}
+				}
+				return nil
+			}())
+		}
+		c.Team = teamPB
 		res.Clarifications = append(res.Clarifications, c)
 	}
 	return writeProto(e, http.StatusOK, res)
@@ -1429,6 +1452,23 @@ func makeClarificationPB(ctx context.Context, db sqlx.QueryerContext, c *xsuport
 		Answer:    c.Answer.String,
 		CreatedAt: timestamppb.New(c.CreatedAt),
 		Team:      team,
+	}
+	if c.AnsweredAt.Valid {
+		pb.AnsweredAt = timestamppb.New(c.AnsweredAt.Time)
+	}
+	return pb, nil
+}
+
+func makeClarificationPBWithoutTeamPB(c *xsuportal.Clarification) (*resourcespb.Clarification, error) {
+	pb := &resourcespb.Clarification{
+		Id:        c.ID,
+		TeamId:    c.TeamID,
+		Answered:  c.AnsweredAt.Valid,
+		Disclosed: c.Disclosed.Bool,
+		Question:  c.Question.String,
+		Answer:    c.Answer.String,
+		CreatedAt: timestamppb.New(c.CreatedAt),
+		Team:      nil, // 呼び出し側で適切にsetしましょう
 	}
 	if c.AnsweredAt.Valid {
 		pb.AnsweredAt = timestamppb.New(c.AnsweredAt.Time)
