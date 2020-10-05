@@ -985,6 +985,10 @@ func (*RegistrationService) CreateTeam(e echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("update team: %w", err)
 	}
+	err = insertOrUpdateTeamStudentFlags(ctx, conn, *team, *contestant)
+	if err != nil {
+		return fmt.Errorf("update team_student_flags: %w", err)
+	}
 
 	return writeProto(e, http.StatusOK, &registrationpb.CreateTeamResponse{
 		TeamId: teamID,
@@ -1046,10 +1050,30 @@ func (*RegistrationService) JoinTeam(e echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("update contestant: %w", err)
 	}
+	err = insertOrUpdateTeamStudentFlags(ctx, tx, *team, *contestant)
+	if err != nil {
+		return fmt.Errorf("update team_student_flags: %w", err)
+	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit tx: %w", err)
 	}
 	return writeProto(e, http.StatusOK, &registrationpb.JoinTeamResponse{})
+}
+
+func insertOrUpdateTeamStudentFlags(ctx context.Context, db sqlx.ExtContext, team *xsuportal.Team, contestant *xsuportal.Contestant) error {
+	_, err := db.ExecContext(ctx,
+		`
+		INSERT INTO team_student_flags (team_id, student) VALUES
+		(?, (SELECT SUM(student) = COUNT(*) FROM contestants WHERE team_id = ?))
+		ON DUPLICATE KEY UPDATE student = VALUES(student)
+		`,
+		contestant.TeamID,
+		contestant.TeamID,
+	)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (*RegistrationService) UpdateRegistration(e echo.Context) error {
@@ -1085,6 +1109,12 @@ func (*RegistrationService) UpdateRegistration(e echo.Context) error {
 		req.IsStudent,
 		contestant.ID,
 	)
+	if team.LeaderID.Valid {
+		err = insertOrUpdateTeamStudentFlags(ctx, tx, team, contestant)
+		if err != nil {
+			return fmt.Errorf("update team_student_flags: %w", err)
+		}
+	}
 	if err != nil {
 		return fmt.Errorf("update contestant: %w", err)
 	}
@@ -1131,6 +1161,12 @@ func (*RegistrationService) DeleteRegistration(e echo.Context) error {
 		)
 		if err != nil {
 			return fmt.Errorf("withdrawn contestant(id=%v): %w", contestant.ID, err)
+		}
+	}
+	if team.LeaderID.Valid {
+		err = insertOrUpdateTeamStudentFlags(ctx, tx, team, contestant)
+		if err != nil {
+			return fmt.Errorf("update team_student_flags: %w", err)
 		}
 	}
 	if err := tx.Commit(); err != nil {
