@@ -1050,7 +1050,7 @@ func (*RegistrationService) JoinTeam(e echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("update contestant: %w", err)
 	}
-	err = insertOrUpdateTeamStudentFlags(ctx, tx, *team, contestant)
+	err = insertOrUpdateTeamStudentFlags(ctx, tx, &team, contestant)
 	if err != nil {
 		return fmt.Errorf("update team_student_flags: %w", err)
 	}
