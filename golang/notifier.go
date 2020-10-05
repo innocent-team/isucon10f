@@ -203,14 +203,6 @@ func (n *Notifier) NotifyClarificationAnswered(ctx context.Context, db *sqlx.DB,
 				log.Errorf("notify: %w", err)
 				continue
 			}
-			_, err = db.ExecContext(ctx,
-				"UPDATE `notifications` SET `read` = TRUE WHERE `contestant_id` = ? AND `read` = FALSE",
-				pushSubscription.ContestantID,
-			)
-			if err != nil {
-				log.Errorf("notify: %w", err)
-				continue
-			}
 		}
 	}
 	return nil
@@ -266,14 +258,6 @@ func (n *Notifier) NotifyBenchmarkJobFinished(ctx context.Context, db *sqlx.DB, 
 					continue
 				}
 			}
-			_, err = db.ExecContext(ctx,
-				"UPDATE `notifications` SET `read` = TRUE WHERE `contestant_id` = ? AND `read` = FALSE",
-				pushSubscription.ContestantID,
-			)
-			if err != nil {
-				log.Errorf("notify: %w", err)
-				continue
-			}
 		}
 	}
 	return nil
@@ -285,8 +269,9 @@ func (n *Notifier) notify(ctx context.Context, db sqlx.ExtContext, notificationP
 		return nil, fmt.Errorf("marshal notification: %w", err)
 	}
 	encodedMessage := base64.StdEncoding.EncodeToString(m)
+	// プッシュ通知なのでもう読まれたものとみなす
 	res, err := db.ExecContext(ctx,
-		"INSERT INTO `notifications` (`contestant_id`, `encoded_message`, `read`, `created_at`, `updated_at`) VALUES (?, ?, FALSE, NOW(6), NOW(6))",
+		"INSERT INTO `notifications` (`contestant_id`, `encoded_message`, `read`, `created_at`, `updated_at`) VALUES (?, ?, TRUE, NOW(6), NOW(6))",
 		contestantID,
 		encodedMessage,
 	)
