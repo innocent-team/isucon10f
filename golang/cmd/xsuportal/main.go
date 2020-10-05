@@ -1068,9 +1068,9 @@ func insertOrUpdateTeamStudentFlags(ctx context.Context, db sqlx.ExecerContext, 
 	}
 	_, err := db.ExecContext(ctx,
 		`
-		INSERT INTO team_student_flags (team_id, student) VALUES
-		(?, (SELECT SUM(student) = COUNT(*) FROM contestants WHERE team_id = ?))
-		ON DUPLICATE KEY UPDATE student = VALUES(student)
+		INSERT INTO team_student_flags (team_id, student, created_at, updated_at) VALUES
+		(?, (SELECT SUM(student) = COUNT(*) FROM contestants WHERE team_id = ?), NOW(6), NOW(6))
+		ON DUPLICATE KEY UPDATE student = VALUES(student), updated_at = VALUES(updated_at)
 		`,
 		contestant.TeamID.Int64,
 		contestant.TeamID.Int64,
