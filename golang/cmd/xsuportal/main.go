@@ -1062,6 +1062,10 @@ func (*RegistrationService) JoinTeam(e echo.Context) error {
 }
 
 func insertOrUpdateTeamStudentFlags(ctx context.Context, db sqlx.ExecerContext, contestant *xsuportal.Contestant) error {
+	if !contestant.TeamID.Valid {
+		// do nothing
+		return nil
+	}
 	_, err := db.ExecContext(ctx,
 		`
 		INSERT INTO team_student_flags (team_id, student) VALUES
