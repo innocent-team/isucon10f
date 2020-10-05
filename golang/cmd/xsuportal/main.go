@@ -262,16 +262,11 @@ func (*AdminService) ListClarifications(e echo.Context) error {
 		for _, member := range members {
 			teamPB.Members = append(teamPB.Members, makeContestantPB(&member))
 			teamPB.MemberIds = append(teamPB.MemberIds, member.ID)
-		}
-		if team.LeaderID.Valid {
-			teamPB.Leader = makeContestantPB(func() *xsuportal.Contestant {
-				for _, member := range members {
-					if member.ID == team.LeaderID.String {
-						return &member
-					}
+			if team.LeaderID.Valid {
+				if member.ID == team.LeaderID.String {
+					teamPB.Leader = makeContestantPB(&member)
 				}
-				return nil
-			}())
+			}
 		}
 		c.Team = teamPB
 		res.Clarifications = append(res.Clarifications, c)
