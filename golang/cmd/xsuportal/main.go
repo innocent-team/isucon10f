@@ -919,7 +919,7 @@ func (*RegistrationService) CreateTeam(e echo.Context) error {
 	}
 	defer conn.Close()
 
-	_, err = conn.ExecContext(ctx, "LOCK TABLES `teams` WRITE, `contestants` WRITE")
+	_, err = conn.ExecContext(ctx, "LOCK TABLES `teams` WRITE, `contestants` WRITE, `team_student_flags` WRITE")
 	if err != nil {
 		return fmt.Errorf("lock tables: %w", err)
 	}
