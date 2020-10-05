@@ -16,6 +16,7 @@ vcl 4.0;
 backend default {
     .host = "127.0.0.1";
     .port = "9292";
+    .first_byte_timeout = 1.8s;
 }
 
 sub vcl_recv {
@@ -36,6 +37,7 @@ sub vcl_backend_response {
 
     if (bereq.url ~ "^/api/audience/dashboard") {
         set beresp.ttl = 1s;
+        set beresp.grace = 1s;
     }
 }
 
