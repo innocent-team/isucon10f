@@ -37,6 +37,7 @@ sub vcl_backend_response {
 
     if (bereq.url ~ "^/api/audience/dashboard") {
         set beresp.ttl = 1s;
+        set beresp.grace = 1s;
     }
 }
 
