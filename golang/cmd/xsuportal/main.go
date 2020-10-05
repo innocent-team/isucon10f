@@ -167,6 +167,7 @@ func (*AdminService) Initialize(e echo.Context) error {
 
 	queries := []string{
 		"TRUNCATE `teams`",
+		"TRUNCATE `team_student_flags`",
 		"TRUNCATE `contestants`",
 		"TRUNCATE `benchmark_jobs`",
 		"TRUNCATE `clarifications`",
@@ -918,7 +919,7 @@ func (*RegistrationService) CreateTeam(e echo.Context) error {
 	}
 	defer conn.Close()
 
-	_, err = conn.ExecContext(ctx, "LOCK TABLES `teams` WRITE, `contestants` WRITE")
+	_, err = conn.ExecContext(ctx, "LOCK TABLES `teams` WRITE, `contestants` WRITE, `team_student_flags` WRITE")
 	if err != nil {
 		return fmt.Errorf("lock tables: %w", err)
 	}
@@ -984,6 +985,11 @@ func (*RegistrationService) CreateTeam(e echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("update team: %w", err)
 	}
+	contestant.TeamID = sql.NullInt64{Int64: teamID, Valid: true}
+	err = insertOrUpdateTeamStudentFlags(ctx, conn, contestant)
+	if err != nil {
+		return fmt.Errorf("update team_student_flags: %w", err)
+	}
 
 	return writeProto(e, http.StatusOK, &registrationpb.CreateTeamResponse{
 		TeamId: teamID,
@@ -1045,10 +1051,34 @@ func (*RegistrationService) JoinTeam(e echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("update contestant: %w", err)
 	}
+	err = insertOrUpdateTeamStudentFlags(ctx, tx, contestant)
+	if err != nil {
+		return fmt.Errorf("update team_student_flags: %w", err)
+	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit tx: %w", err)
 	}
 	return writeProto(e, http.StatusOK, &registrationpb.JoinTeamResponse{})
+}
+
+func insertOrUpdateTeamStudentFlags(ctx context.Context, db sqlx.ExecerContext, contestant *xsuportal.Contestant) error {
+	if !contestant.TeamID.Valid {
+		// do nothing
+		return nil
+	}
+	_, err := db.ExecContext(ctx,
+		`
+		INSERT INTO team_student_flags (team_id, student, created_at, updated_at) VALUES
+		(?, (SELECT SUM(student) = COUNT(*) FROM contestants WHERE team_id = ?), NOW(6), NOW(6))
+		ON DUPLICATE KEY UPDATE student = VALUES(student), updated_at = VALUES(updated_at)
+		`,
+		contestant.TeamID.Int64,
+		contestant.TeamID.Int64,
+	)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (*RegistrationService) UpdateRegistration(e echo.Context) error {
@@ -1084,6 +1114,12 @@ func (*RegistrationService) UpdateRegistration(e echo.Context) error {
 		req.IsStudent,
 		contestant.ID,
 	)
+	if team.LeaderID.Valid {
+		err = insertOrUpdateTeamStudentFlags(ctx, tx, contestant)
+		if err != nil {
+			return fmt.Errorf("update team_student_flags: %w", err)
+		}
+	}
 	if err != nil {
 		return fmt.Errorf("update contestant: %w", err)
 	}
@@ -1130,6 +1166,12 @@ func (*RegistrationService) DeleteRegistration(e echo.Context) error {
 		)
 		if err != nil {
 			return fmt.Errorf("withdrawn contestant(id=%v): %w", contestant.ID, err)
+		}
+	}
+	if team.LeaderID.Valid {
+		err = insertOrUpdateTeamStudentFlags(ctx, tx, contestant)
+		if err != nil {
+			return fmt.Errorf("update team_student_flags: %w", err)
 		}
 	}
 	if err := tx.Commit(); err != nil {
@@ -1544,15 +1586,7 @@ func makeLeaderboardPB(e echo.Context, teamID int64) (*resourcespb.Leaderboard, 
 		"  ) `best_score_job_ids` ON `best_score_job_ids`.`team_id` = `teams`.`id`\n" +
 		"  LEFT JOIN `benchmark_jobs` `best_score_jobs` ON `best_score_jobs`.`id` = `best_score_job_ids`.`id`\n" +
 		"  -- check student teams\n" +
-		"  LEFT JOIN (\n" +
-		"    SELECT\n" +
-		"      `team_id`,\n" +
-		"      (SUM(`student`) = COUNT(*)) AS `student`\n" +
-		"    FROM\n" +
-		"      `contestants`\n" +
-		"    GROUP BY\n" +
-		"      `contestants`.`team_id`\n" +
-		"  ) `team_student_flags` ON `team_student_flags`.`team_id` = `teams`.`id`\n" +
+		"  LEFT JOIN `team_student_flags` ON `team_student_flags`.`team_id` = `teams`.`id`\n" +
 		"ORDER BY\n" +
 		"  `latest_score` DESC,\n" +
 		"  `latest_score_marked_at` ASC,\n" +
