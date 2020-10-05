@@ -578,14 +578,33 @@ func (*ContestantService) ListClarifications(e echo.Context) error {
 	if err != sql.ErrNoRows && err != nil {
 		return fmt.Errorf("select teams: %w", err)
 	}
+	contestantsMap, err := getContestantsMapByTeamIDs(ctx, db, clarificationTeamIDs)
+	if err != sql.ErrNoRows && err != nil {
+		return fmt.Errorf("select contestants: %w", err)
+	}
 
 	for _, clarification := range clarifications {
 		var team xsuportal.Team
 		team = teamIDtoTeamMap[clarification.TeamID]
-		c, err := makeClarificationPB(ctx, db, &clarification, &team)
+		c, err := makeClarificationPBWithoutTeamPB(&clarification)
 		if err != nil {
 			return fmt.Errorf("make clarification: %w", err)
 		}
+		teamPB, err := makeTeamPB(ctx, db, &team, false, true)
+		if err != nil {
+			return fmt.Errorf("make team: %w", err)
+		}
+		members := contestantsMap[clarification.TeamID]
+		for _, member := range members {
+			teamPB.Members = append(teamPB.Members, makeContestantPB(&member))
+			teamPB.MemberIds = append(teamPB.MemberIds, member.ID)
+			if team.LeaderID.Valid {
+				if member.ID == team.LeaderID.String {
+					teamPB.Leader = makeContestantPB(&member)
+				}
+			}
+		}
+		c.Team = teamPB
 		res.Clarifications = append(res.Clarifications, c)
 	}
 	return writeProto(e, http.StatusOK, res)
