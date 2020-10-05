@@ -1287,6 +1287,16 @@ func (*AudienceService) Dashboard(e echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("make leaderboard: %w", err)
 	}
+	contestStatus, err := getCurrentContestStatus(e, db)
+	if err != nil {
+		return fmt.Errorf("get current contest status: %w", err)
+	}
+	contestEndsAt := contestStatus.ContestEndsAt
+	contestFreezesAt := contestStatus.ContestFreezesAt
+	now := time.Now()
+	if now.After(contestFreezesAt) {
+		e.Response().Header().Set("X-Dashboard-Freezed-Until", contestEndsAt.Format(http.TimeFormat))
+	}
 	e.Response().Header().Set("Cache-Control", "public, max-age=1")
 	return e.Blob(http.StatusOK, "application/vnd.google.protobuf", leaderboard)
 }

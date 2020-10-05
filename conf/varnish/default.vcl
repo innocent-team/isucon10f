@@ -12,6 +12,8 @@
 # new 4.0 format.
 vcl 4.0;
 
+import std;
+
 # Default backend definition. Set this to point to your content server.
 backend default {
     .host = "127.0.0.1";
@@ -36,8 +38,13 @@ sub vcl_backend_response {
     # and other mistakes your backend does.
 
     if (bereq.url ~ "^/api/audience/dashboard") {
-        set beresp.ttl = 1s;
         set beresp.grace = 1s;
+        if (beresp.http.X-Dashboard-Freezed-Until && std.time(beresp.http.X-Dashboard-Freezed-Until, now) > now) {
+            set beresp.ttl = std.time(beresp.http.X-Dashboard-Freezed-Until, now) - now;
+        } else {
+            set beresp.ttl = 1s;
+        }
+        set beresp.http.Cache-Control = "public, max-age=" + std.integer(beresp.ttl);
     }
 }
 
@@ -46,4 +53,9 @@ sub vcl_deliver {
     # response to the client.
     #
     # You can do accounting or modifying the final object here.
+    if (obj.hits != 0) {
+        set resp.http.X-Cache = "HIT";
+    } else {
+        set resp.http.X-Cache = "MISS";
+    }
 }
