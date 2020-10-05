@@ -985,7 +985,8 @@ func (*RegistrationService) CreateTeam(e echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("update team: %w", err)
 	}
-	err = insertOrUpdateTeamStudentFlags(ctx, conn, *team, contestant)
+	contestant.TeamID = sql.NullInt64{Int64: teamID, Valid: true}
+	err = insertOrUpdateTeamStudentFlags(ctx, conn, contestant)
 	if err != nil {
 		return fmt.Errorf("update team_student_flags: %w", err)
 	}
@@ -1050,7 +1051,7 @@ func (*RegistrationService) JoinTeam(e echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("update contestant: %w", err)
 	}
-	err = insertOrUpdateTeamStudentFlags(ctx, tx, &team, contestant)
+	err = insertOrUpdateTeamStudentFlags(ctx, tx, contestant)
 	if err != nil {
 		return fmt.Errorf("update team_student_flags: %w", err)
 	}
@@ -1060,7 +1061,7 @@ func (*RegistrationService) JoinTeam(e echo.Context) error {
 	return writeProto(e, http.StatusOK, &registrationpb.JoinTeamResponse{})
 }
 
-func insertOrUpdateTeamStudentFlags(ctx context.Context, db sqlx.ExecerContext, team *xsuportal.Team, contestant *xsuportal.Contestant) error {
+func insertOrUpdateTeamStudentFlags(ctx context.Context, db sqlx.ExecerContext, contestant *xsuportal.Contestant) error {
 	_, err := db.ExecContext(ctx,
 		`
 		INSERT INTO team_student_flags (team_id, student) VALUES
@@ -1110,7 +1111,7 @@ func (*RegistrationService) UpdateRegistration(e echo.Context) error {
 		contestant.ID,
 	)
 	if team.LeaderID.Valid {
-		err = insertOrUpdateTeamStudentFlags(ctx, tx, team, contestant)
+		err = insertOrUpdateTeamStudentFlags(ctx, tx, contestant)
 		if err != nil {
 			return fmt.Errorf("update team_student_flags: %w", err)
 		}
@@ -1164,7 +1165,7 @@ func (*RegistrationService) DeleteRegistration(e echo.Context) error {
 		}
 	}
 	if team.LeaderID.Valid {
-		err = insertOrUpdateTeamStudentFlags(ctx, tx, team, contestant)
+		err = insertOrUpdateTeamStudentFlags(ctx, tx, contestant)
 		if err != nil {
 			return fmt.Errorf("update team_student_flags: %w", err)
 		}
