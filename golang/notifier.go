@@ -216,7 +216,7 @@ func (n *Notifier) NotifyClarificationAnswered(ctx context.Context, db *sqlx.DB,
 	return nil
 }
 
-func (n *Notifier) NotifyBenchmarkJobFinished(ctx context.Context, db sqlx.ExtContext, job *BenchmarkJob) error {
+func (n *Notifier) NotifyBenchmarkJobFinished(ctx context.Context, db *sqlx.DB, job *BenchmarkJob) error {
 	var contestants []struct {
 		ID     string `db:"id"`
 		TeamID int64  `db:"team_id"`
@@ -230,7 +230,15 @@ func (n *Notifier) NotifyBenchmarkJobFinished(ctx context.Context, db sqlx.ExtCo
 	if err != nil {
 		return fmt.Errorf("select contestants(team_id=%v): %w", job.TeamID, err)
 	}
+	var contestantIDs []string
 	for _, contestant := range contestants {
+		contestantIDs = append(contestantIDs, contestant.ID)
+	}
+	pushSubscriptions, err := getPushSubscriptionsByContestantIDs(ctx, db, contestantIDs)
+	if err != nil {
+		return fmt.Errorf("select push_subscriptions: %w", err)
+	}
+	for _, pushSubscription := range pushSubscriptions {
 		notificationPB := &resources.Notification{
 			Content: &resources.Notification_ContentBenchmarkJob{
 				ContentBenchmarkJob: &resources.Notification_BenchmarkJobMessage{
@@ -238,7 +246,7 @@ func (n *Notifier) NotifyBenchmarkJobFinished(ctx context.Context, db sqlx.ExtCo
 				},
 			},
 		}
-		notification, err := n.notify(ctx, db, notificationPB, contestant.ID)
+		notification, err := n.notify(ctx, db, notificationPB, pushSubscription.ContestantID)
 		if err != nil {
 			return fmt.Errorf("notify: %w", err)
 		}
@@ -250,20 +258,7 @@ func (n *Notifier) NotifyBenchmarkJobFinished(ctx context.Context, db sqlx.ExtCo
 				log.Errorf("notify: %w", err)
 				continue
 			}
-			var pushSubscriptions []*PushSubscription
-			err = sqlx.SelectContext(ctx,
-				db,
-				&pushSubscriptions,
-				`
-					SELECT * FROM push_subscriptions
-					WHERE contestant_id = ?
-				`,
-				contestant.ID,
-			)
-			if err != nil {
-				log.Errorf("notify: %w", err)
-				continue
-			}
+
 			for _, pushSubscription := range pushSubscriptions {
 				err = SendWebPush(vapidKey, notificationPB, pushSubscription)
 				if err != nil {
@@ -273,7 +268,7 @@ func (n *Notifier) NotifyBenchmarkJobFinished(ctx context.Context, db sqlx.ExtCo
 			}
 			_, err = db.ExecContext(ctx,
 				"UPDATE `notifications` SET `read` = TRUE WHERE `contestant_id` = ? AND `read` = FALSE",
-				contestant.ID,
+				pushSubscription.ContestantID,
 			)
 			if err != nil {
 				log.Errorf("notify: %w", err)
