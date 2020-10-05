@@ -1060,7 +1060,7 @@ func (*RegistrationService) JoinTeam(e echo.Context) error {
 	return writeProto(e, http.StatusOK, &registrationpb.JoinTeamResponse{})
 }
 
-func insertOrUpdateTeamStudentFlags(ctx context.Context, db sqlx.ExtContext, team *xsuportal.Team, contestant *xsuportal.Contestant) error {
+func insertOrUpdateTeamStudentFlags(ctx context.Context, db sqlx.ExecerContext, team *xsuportal.Team, contestant *xsuportal.Contestant) error {
 	_, err := db.ExecContext(ctx,
 		`
 		INSERT INTO team_student_flags (team_id, student) VALUES
