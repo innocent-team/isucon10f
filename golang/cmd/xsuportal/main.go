@@ -1068,8 +1068,8 @@ func insertOrUpdateTeamStudentFlags(ctx context.Context, db sqlx.ExecerContext, 
 		(?, (SELECT SUM(student) = COUNT(*) FROM contestants WHERE team_id = ?))
 		ON DUPLICATE KEY UPDATE student = VALUES(student)
 		`,
-		contestant.TeamID,
-		contestant.TeamID,
+		contestant.TeamID.Int64,
+		contestant.TeamID.Int64,
 	)
 	if err != nil {
 		return err
