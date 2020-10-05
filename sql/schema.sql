@@ -43,6 +43,7 @@ CREATE TABLE `benchmark_jobs` (
 ALTER TABLE `benchmark_jobs` ADD INDEX idx1 (`team_id`,`id`);
 ALTER TABLE `benchmark_jobs` ADD INDEX idx2 (`status`,`team_id`,`id`);
 ALTER TABLE `benchmark_jobs` ADD INDEX idx3 (`status`,`team_id`,`finished_at`);
+ALTER TABLE `benchmark_jobs` ADD INDEX `team_id_created_at` (`team_id`, `created_at` DESC);
 
 DROP TABLE IF EXISTS `clarifications`;
 CREATE TABLE `clarifications` (
