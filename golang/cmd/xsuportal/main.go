@@ -167,6 +167,7 @@ func (*AdminService) Initialize(e echo.Context) error {
 
 	queries := []string{
 		"TRUNCATE `teams`",
+		"TRUNCATE `team_student_flags`",
 		"TRUNCATE `contestants`",
 		"TRUNCATE `benchmark_jobs`",
 		"TRUNCATE `clarifications`",

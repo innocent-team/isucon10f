@@ -23,6 +23,15 @@ CREATE TABLE `teams` (
   UNIQUE KEY (`leader_id`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4;
 
+DROP TABLE IF EXISTS `team_student_flags`;
+CREATE TABLE `team_student_flags` (
+  `team_id` BIGINT NOT NULL PRIMARY KEY,
+  `student` TINYINT(1) NOT NULL DEFAULT FALSE,
+
+  `created_at` DATETIME(6) NOT NULL,
+  `updated_at` DATETIME(6) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARACTER SET=utf8mb4;
+
 DROP TABLE IF EXISTS `benchmark_jobs`;
 CREATE TABLE `benchmark_jobs` (
   `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
