@@ -52,8 +52,12 @@ const (
 var db *sqlx.DB
 var notifier xsuportal.Notifier
 var nrApp *newrelic.Application
+var jobqueueServer string
 
 func main() {
+	jobqueueServer = util.GetEnv("JOBQUEUE_SERVER", "http://localhost")
+	log.Infof("job queue server is %s", jobqueueServer)
+
 	srv := echo.New()
 	srv.Debug = util.GetEnv("DEBUG", "") != ""
 	srv.Server.Addr = fmt.Sprintf(":%v", util.GetEnv("PORT", "9292"))
@@ -477,6 +481,10 @@ func (*ContestantService) EnqueueBenchmarkJob(e echo.Context) error {
 	)
 	if err != nil {
 		return fmt.Errorf("get benchmark job: %w", err)
+	}
+	err = enqueue(job)
+	if err != nil {
+		return fmt.Errorf("enqueue to benchmark server: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit tx: %w", err)
@@ -1802,5 +1810,20 @@ func toTimestamp(t sql.NullTime) *timestamppb.Timestamp {
 	if t.Valid {
 		return timestamppb.New(t.Time)
 	}
+	return nil
+}
+
+func enqueue(job xsuportal.BenchmarkJob) error {
+	jobIDStr := strconv.FormatInt(job.ID, 10)
+	req, err := http.NewRequest(http.MethodPost, jobqueueServer+"/enqueue/"+jobIDStr, nil)
+	if err != nil {
+		return err
+	}
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
 	return nil
 }
