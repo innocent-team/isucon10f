@@ -20,17 +20,14 @@ func (q *jobQueue) enqueue(job xsuportal.BenchmarkJob) {
 }
 
 func (q *jobQueue) dequeue() *xsuportal.BenchmarkJob {
-	q.RLock()
+	q.Lock()
+	defer q.Unlock()
 	if len(q.queue) == 0 {
-		q.RUnlock()
 		return nil
 	}
 	job := q.queue[0]
-	q.RUnlock()
 
-	q.Lock()
 	q.queue = q.queue[1:]
-	q.Unlock()
 
 	return &job
 }
