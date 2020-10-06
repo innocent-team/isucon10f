@@ -55,7 +55,7 @@ var nrApp *newrelic.Application
 var jobqueueServer string
 
 func main() {
-	jobqueueServer = util.GetEnv("JOBQUEUE_SERVER", "http://localhost")
+	jobqueueServer = util.GetEnv("JOBQUEUE_SERVER", "http://localhost:9292")
 	log.Infof("job queue server is %s", jobqueueServer)
 
 	srv := echo.New()

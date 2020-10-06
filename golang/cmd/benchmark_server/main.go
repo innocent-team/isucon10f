@@ -315,6 +315,7 @@ func main() {
 
 	e := echo.New()
 	e.POST("/enqueue/:job_id", handleEnqueue)
+	e.Server.Addr = ":9292"
 
 	var wg sync.WaitGroup
 
