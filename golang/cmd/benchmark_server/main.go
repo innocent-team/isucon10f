@@ -52,7 +52,7 @@ func (b *benchmarkQueueService) ReceiveBenchmarkJob(ctx context.Context, req *be
 			}
 			defer tx.Rollback()
 
-			job, err := pollBenchmarkJob(ctx, tx)
+			job, err := pollBenchmarkJob()
 			if err != nil {
 				return false, fmt.Errorf("poll benchmark job: %w", err)
 			}
@@ -255,7 +255,7 @@ func (b *benchmarkReportService) saveAsRunning(ctx context.Context, db sqlx.Exec
 	return nil
 }
 
-func pollBenchmarkJob(ctx context.Context, db sqlx.QueryerContext) (*xsuportal.BenchmarkJob, error) {
+func pollBenchmarkJob() (*xsuportal.BenchmarkJob, error) {
 	for i := 0; i < 10; i++ {
 		if i >= 1 {
 			time.Sleep(50 * time.Millisecond)
