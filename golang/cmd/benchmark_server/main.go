@@ -25,6 +25,7 @@ import (
 	"github.com/newrelic/go-agent/v3/newrelic"
 
 	xsuportal "github.com/isucon/isucon10-final/webapp/golang"
+	echopprof "github.com/isucon/isucon10-final/webapp/golang/echo-pprof"
 	"github.com/isucon/isucon10-final/webapp/golang/proto/xsuportal/resources"
 	"github.com/isucon/isucon10-final/webapp/golang/proto/xsuportal/services/bench"
 	"github.com/isucon/isucon10-final/webapp/golang/util"
@@ -316,6 +317,7 @@ func main() {
 	e := echo.New()
 	e.POST("/enqueue/:job_id", handleEnqueue)
 	e.Server.Addr = ":9292"
+	echopprof.Wrap(e)
 
 	var wg sync.WaitGroup
 
