@@ -54,18 +54,6 @@ ALTER TABLE `benchmark_jobs` ADD INDEX idx2 (`status`,`team_id`,`id`);
 ALTER TABLE `benchmark_jobs` ADD INDEX idx3 (`status`,`team_id`,`finished_at`);
 ALTER TABLE `benchmark_jobs` ADD INDEX `team_id_created_at` (`team_id`, `created_at` DESC);
 
-DROP TABLE IF EXISTS `job_results`
-CREATE TABLE `job_results` (
-  `team_id` BIGINT NOT NULL,
-  `score` INT NOT NULL,
-  `started_at` DATETIME(6),
-  `finished_at` DATETIME(6),
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARACTER SET=utf8mb4;
-
-ALTER TABLE `job_results` ADD INDEX `team_id_finished_at` (`team_id`, `finished_at`);
-
 DROP TABLE IF EXISTS `clarifications`;
 CREATE TABLE `clarifications` (
   `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
