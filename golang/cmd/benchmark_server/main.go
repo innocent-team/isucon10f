@@ -8,10 +8,14 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/labstack/echo/v4"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -274,6 +278,15 @@ func pollBenchmarkJob(ctx context.Context, db sqlx.QueryerContext) (*xsuportal.B
 	return nil, nil
 }
 
+func handleEnqueue(e echo.Context) error {
+	jobID, err := strconv.ParseInt(e.Param("job_id"), 10, 64)
+	if err != nil {
+		return err
+	}
+	q.enqueue(xsuportal.BenchmarkJob{ID: jobID})
+	return e.NoContent(http.StatusCreated)
+}
+
 func main() {
 	// New Relic
 	nrLicenseKey := os.Getenv("NEWRELIC_LICENSE_KEY")
@@ -309,7 +322,24 @@ func main() {
 	bench.RegisterBenchmarkQueueService(server, queue.Svc())
 	bench.RegisterBenchmarkReportService(server, report.Svc())
 
-	if err := server.Serve(listener); err != nil {
-		panic(err)
-	}
+	e := echo.New()
+	e.POST("/enqueue/:job_id", handleEnqueue)
+
+	var wg sync.WaitGroup
+
+	// run gRPC server
+	wg.Add(1)
+	go func() {
+		log.Fatal(server.Serve(listener))
+		wg.Done()
+	}()
+
+	// run HTTP server
+	wg.Add(1)
+	go func() {
+		log.Fatal(e.StartServer(e.Server))
+		wg.Done()
+	}()
+
+	wg.Wait()
 }
