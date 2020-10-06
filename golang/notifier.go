@@ -208,12 +208,13 @@ func (n *Notifier) NotifyClarificationAnswered(ctx context.Context, db *sqlx.DB,
 	return nil
 }
 
-func (n *Notifier) NotifyBenchmarkJobFinished(ctx context.Context, db *sqlx.DB, job *BenchmarkJob) error {
+func (n *Notifier) NotifyBenchmarkJobFinished(db sqlx.ExtContext, job *BenchmarkJob) error {
 	var contestants []struct {
 		ID     string `db:"id"`
 		TeamID int64  `db:"team_id"`
 	}
-	err := sqlx.SelectContext(ctx,
+	err := sqlx.SelectContext(
+		context.TODO(),
 		db,
 		&contestants,
 		"SELECT `id`, `team_id` FROM `contestants` WHERE `team_id` = ?",
@@ -222,15 +223,7 @@ func (n *Notifier) NotifyBenchmarkJobFinished(ctx context.Context, db *sqlx.DB, 
 	if err != nil {
 		return fmt.Errorf("select contestants(team_id=%v): %w", job.TeamID, err)
 	}
-	var contestantIDs []string
 	for _, contestant := range contestants {
-		contestantIDs = append(contestantIDs, contestant.ID)
-	}
-	pushSubscriptions, err := getPushSubscriptionsByContestantIDs(ctx, db, contestantIDs)
-	if err != nil {
-		return fmt.Errorf("select push_subscriptions: %w", err)
-	}
-	for _, pushSubscription := range pushSubscriptions {
 		notificationPB := &resources.Notification{
 			Content: &resources.Notification_ContentBenchmarkJob{
 				ContentBenchmarkJob: &resources.Notification_BenchmarkJobMessage{
@@ -238,7 +231,7 @@ func (n *Notifier) NotifyBenchmarkJobFinished(ctx context.Context, db *sqlx.DB, 
 				},
 			},
 		}
-		notification, err := n.notify(ctx, db, notificationPB, pushSubscription.ContestantID)
+		notification, err := n.notify(context.TODO(), db, notificationPB, contestant.ID)
 		if err != nil {
 			return fmt.Errorf("notify: %w", err)
 		}
@@ -248,6 +241,24 @@ func (n *Notifier) NotifyBenchmarkJobFinished(ctx context.Context, db *sqlx.DB, 
 			vapidKey, err := GetVAPIDKey(WebpushVAPIDPrivateKeyPath)
 			if err != nil {
 				log.Errorf("notify: %w", err)
+				continue
+			}
+			var pushSubscriptions []*PushSubscription
+			err = sqlx.SelectContext(
+				context.TODO(),
+				db,
+				&pushSubscriptions,
+				`
+					SELECT * FROM push_subscriptions
+					WHERE contestant_id = ?
+				`,
+				contestant.ID,
+			)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					continue
+				}
+				log.Errorf("select subscriptions: %w", err)
 				continue
 			}
 

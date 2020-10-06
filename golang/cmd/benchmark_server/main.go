@@ -170,7 +170,7 @@ func (b *benchmarkReportService) ReportBenchmarkResult(srv bench.BenchmarkReport
 				if err := tx.Commit(); err != nil {
 					return fmt.Errorf("commit tx: %w", err)
 				}
-				if err := notifier.NotifyBenchmarkJobFinished(ctx, db, &job); err != nil {
+				if err := notifier.NotifyBenchmarkJobFinished(db, &job); err != nil {
 					return fmt.Errorf("notify benchmark job finished: %w", err)
 				}
 			} else {
