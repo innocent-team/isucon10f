@@ -8,10 +8,14 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/labstack/echo/v4"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -48,7 +52,7 @@ func (b *benchmarkQueueService) ReceiveBenchmarkJob(ctx context.Context, req *be
 			}
 			defer tx.Rollback()
 
-			job, err := pollBenchmarkJob(ctx, tx)
+			job, err := pollBenchmarkJob()
 			if err != nil {
 				return false, fmt.Errorf("poll benchmark job: %w", err)
 			}
@@ -56,10 +60,10 @@ func (b *benchmarkQueueService) ReceiveBenchmarkJob(ctx context.Context, req *be
 				return false, nil
 			}
 
-			var gotLock bool
+			// job.ID しかないので改めてDBから引いてくる
 			err = tx.GetContext(ctx,
-				&gotLock,
-				"SELECT 1 FROM `benchmark_jobs` WHERE `id` = ? AND `status` = ? FOR UPDATE",
+				job,
+				"SELECT * FROM `benchmark_jobs` WHERE `id` = ? AND `status` = ? FOR UPDATE",
 				job.ID,
 				resources.BenchmarkJob_PENDING,
 			)
@@ -251,27 +255,27 @@ func (b *benchmarkReportService) saveAsRunning(ctx context.Context, db sqlx.Exec
 	return nil
 }
 
-func pollBenchmarkJob(ctx context.Context, db sqlx.QueryerContext) (*xsuportal.BenchmarkJob, error) {
-	for i := 0; i < 10; i++ {
+func pollBenchmarkJob() (*xsuportal.BenchmarkJob, error) {
+	for i := 0; i < 20; i++ {
 		if i >= 1 {
-			time.Sleep(50 * time.Millisecond)
+			time.Sleep(25 * time.Millisecond)
 		}
-		var job xsuportal.BenchmarkJob
-		err := sqlx.GetContext(ctx,
-			db,
-			&job,
-			"SELECT * FROM `benchmark_jobs` WHERE `status` = ? ORDER BY `id` LIMIT 1",
-			resources.BenchmarkJob_PENDING,
-		)
-		if err == sql.ErrNoRows {
+		job := q.dequeue()
+		if job == nil {
 			continue
 		}
-		if err != nil {
-			return nil, fmt.Errorf("get benchmark job: %w", err)
-		}
-		return &job, nil
+		return job, nil
 	}
 	return nil, nil
+}
+
+func handleEnqueue(e echo.Context) error {
+	jobID, err := strconv.ParseInt(e.Param("job_id"), 10, 64)
+	if err != nil {
+		return err
+	}
+	q.enqueue(xsuportal.BenchmarkJob{ID: jobID})
+	return e.NoContent(http.StatusCreated)
 }
 
 func main() {
@@ -309,7 +313,25 @@ func main() {
 	bench.RegisterBenchmarkQueueService(server, queue.Svc())
 	bench.RegisterBenchmarkReportService(server, report.Svc())
 
-	if err := server.Serve(listener); err != nil {
-		panic(err)
-	}
+	e := echo.New()
+	e.POST("/enqueue/:job_id", handleEnqueue)
+	e.Server.Addr = ":9292"
+
+	var wg sync.WaitGroup
+
+	// run gRPC server
+	wg.Add(1)
+	go func() {
+		log.Fatal(server.Serve(listener))
+		wg.Done()
+	}()
+
+	// run HTTP server
+	wg.Add(1)
+	go func() {
+		log.Fatal(e.StartServer(e.Server))
+		wg.Done()
+	}()
+
+	wg.Wait()
 }
