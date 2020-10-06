@@ -62,7 +62,7 @@ func (b *benchmarkQueueService) ReceiveBenchmarkJob(ctx context.Context, req *be
 
 			// job.ID しかないので改めてDBから引いてくる
 			err = tx.GetContext(ctx,
-				&job,
+				job,
 				"SELECT * FROM `benchmark_jobs` WHERE `id` = ? AND `status` = ? FOR UPDATE",
 				job.ID,
 				resources.BenchmarkJob_PENDING,
