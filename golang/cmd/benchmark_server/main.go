@@ -60,10 +60,10 @@ func (b *benchmarkQueueService) ReceiveBenchmarkJob(ctx context.Context, req *be
 				return false, nil
 			}
 
-			var gotLock bool
+			// job.ID しかないので改めてDBから引いてくる
 			err = tx.GetContext(ctx,
-				&gotLock,
-				"SELECT 1 FROM `benchmark_jobs` WHERE `id` = ? AND `status` = ? FOR UPDATE",
+				&job,
+				"SELECT * FROM `benchmark_jobs` WHERE `id` = ? AND `status` = ? FOR UPDATE",
 				job.ID,
 				resources.BenchmarkJob_PENDING,
 			)
@@ -260,20 +260,11 @@ func pollBenchmarkJob(ctx context.Context, db sqlx.QueryerContext) (*xsuportal.B
 		if i >= 1 {
 			time.Sleep(50 * time.Millisecond)
 		}
-		var job xsuportal.BenchmarkJob
-		err := sqlx.GetContext(ctx,
-			db,
-			&job,
-			"SELECT * FROM `benchmark_jobs` WHERE `status` = ? ORDER BY `id` LIMIT 1",
-			resources.BenchmarkJob_PENDING,
-		)
-		if err == sql.ErrNoRows {
+		job := q.dequeue()
+		if job == nil {
 			continue
 		}
-		if err != nil {
-			return nil, fmt.Errorf("get benchmark job: %w", err)
-		}
-		return &job, nil
+		return job, nil
 	}
 	return nil, nil
 }
